@@ -1,6 +1,9 @@
 # 运行时（用户需运行 install_runtime.ps1 下载）
 aila_runtime/
 
+# 配置模板（用户应使用 config.json）
+config.example.json
+
 # 临时图片缓存
 temp/
 
