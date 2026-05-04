@@ -103,6 +103,9 @@ python export_model.py --from-hf Qwen/Qwen3.5-4B
 |:----|:----:|:----:|:----:|:---------|
 | Qwen3.5-4B | Hybrid | ✅ 有 | ~3.6 GB | **推荐**，质量与速度均衡 |
 | Qwen3.5-0.8B | Hybrid | ✅ 有 | ~942 MB | 轻量快速，质量一般 |
+| huihui-Qwen3.5-4B-abliterated | Hybrid | ✅ 有 | ~3.6 GB | Abliterated 版本 |
+| Qwen3-4B | Dense | ❌ 无 | ~2.4 GB | 纯文本推理 |
+| Qwen3-0.6B | Dense | ❌ 无 | ~525 MB | 纯文本测试 |
 
 ## 使用方法
 
