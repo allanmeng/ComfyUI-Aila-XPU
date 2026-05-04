@@ -1,5 +1,6 @@
-# 运行时（用户需运行 install_runtime.ps1 下载）
-aila_runtime/
+# 运行时大文件（排除 AilaShared.dll，其余放 Release）
+aila_runtime/*
+!aila_runtime/AilaShared.dll
 
 # 配置模板（用户应使用 config.json）
 config.example.json
