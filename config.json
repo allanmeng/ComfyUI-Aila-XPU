@@ -1,0 +1,4 @@
+{
+    "dll_path": "aila_runtime/AilaShared.dll",
+    "model_folders": ["./models/aila"]
+}
