@@ -22,9 +22,9 @@ Aila 是由 [Blackwood416](https://github.com/Blackwood416) 开发的 Intel Arc 
 
 *以上数据基于 Intel Arc B580 12GB 实测*
 
-## 安装
+## 插件安装
 
-### 方式一：通过启动器安装（推荐）
+### 方式一：启动器安装（推荐）
 
 打开 ComfyUI 启动器 → 插件管理 → 自定义节点 → 通过 Git URL 安装，输入：
 
@@ -51,24 +51,22 @@ pip install -r requirements.txt
 
 [https://pan.quark.cn/s/c793f4fbb990](https://pan.quark.cn/s/c793f4fbb990)
 
-网盘中包含以下三个文件：
-
-**① ComfyUI-Aila-XPU-插件本体.zip** — 插件本体
+网盘文件 `ComfyUI-Aila-XPU-插件本体.zip` 包含插件及运行时。
 
 把里面的 `ComfyUI-Aila-XPU` 文件夹整体放到 `ComfyUI/custom_nodes/` 里面。
 
-**② aila_models.zip** — 已导出的模型文件（即下即用）
+网盘中还包含 `demo_Aila.json` 测试工作流文件，放到 `ComfyUI/user/default/workflows/` 里面即可在 ComfyUI 工作流列表中打开。
 
-把里面的 `aila` 文件夹整体放到 `ComfyUI/models/` 里面。
-包含以下已转化好的模型：
-- `qwen3.5-4b-bnb-nf4-offline` — 推荐，质量与速度均衡
-- `qwen3.5-0.8b-bnb-nf4-offline` — 轻量快速
+### Intel Arc 用户注意
 
-**③ demo_Aila.json** — 测试工作流文件
+插件依赖 `bitsandbytes`，ComfyUI 启动时会自动安装。
+默认安装的 `bitsandbytes` 是 NVIDIA CUDA 版，Intel Arc 用户需手动重装为 XPU 版：
 
-放到 `ComfyUI/user/default/workflows/` 里面，重启后在 ComfyUI 工作流列表中可以找到。
+```bash
+pip install --force-reinstall bitsandbytes --extra-index-url https://pytorch.org/whl/xpu
+```
 
-### 模型获取
+## 模型获取
 
 模型文件放到 `ComfyUI/models/aila/` 目录下即可使用。
 
@@ -76,7 +74,7 @@ pip install -r requirements.txt
 
 [https://huggingface.co/collections/Blackwood416/ailas-model-collections](https://huggingface.co/collections/Blackwood416/ailas-model-collections)
 
-下载后解压到 `ComfyUI/models/aila/` 即可使用，无需额外操作。
+下载后解压到 `ComfyUI/models/aila/` 即可使用。
 
 **或使用导出工具自行导出：**
 
@@ -84,21 +82,19 @@ pip install -r requirements.txt
 python export_model.py --from-hf Qwen/Qwen3.5-4B
 ```
 
+**网盘模型文件：** `aila_models.zip` 包含以下已转化好的模型：
+
+- `qwen3.5-4b-bnb-nf4-offline` — 推荐，质量与速度均衡
+- `qwen3.5-0.8b-bnb-nf4-offline` — 轻量快速
+
+把里面的 `aila` 文件夹整体放到 `ComfyUI/models/` 里面。
+
 **支持的模型：**
 
 | 模型 | 架构 | 视觉 | 大小 | 推荐场景 |
 |:----|:----:|:----:|:----:|:---------|
 | Qwen3.5-4B | Hybrid | ✅ 有 | ~3.6 GB | **推荐**，质量与速度均衡 |
 | Qwen3.5-0.8B | Hybrid | ✅ 有 | ~942 MB | 轻量快速，质量一般 |
-
-### Intel Arc 用户注意
-
-本插件内置的 `requirements.txt` 由 ComfyUI 自动安装依赖。
-默认安装的 `bitsandbytes` 是 NVIDIA CUDA 版，Intel Arc 用户需要手动重装为 XPU 版：
-
-```bash
-pip install --force-reinstall bitsandbytes --extra-index-url https://pytorch.org/whl/xpu
-```
 
 ## 使用方法
 
