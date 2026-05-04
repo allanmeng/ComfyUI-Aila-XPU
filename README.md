@@ -1,6 +1,8 @@
 # ComfyUI-Aila-XPU
 
 > 基于 Aila 推理引擎的 ComfyUI 插件，在 Intel Arc 显卡上实现高效的提示词反推（Captioning）。
+>
+> [**English Docs**](./README_EN.md)
 
 ## 关于 [Aila 引擎 ](https://github.com/Blackwood416/Aila)
 
