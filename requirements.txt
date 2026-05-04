@@ -1,0 +1,13 @@
+# Aila Captioner Plugin 依赖
+#
+# ComfyUI 启动时会自动 pip install -r requirements.txt
+#
+# ⚠️ Intel Arc 用户请注意：
+#   默认 pip install bitsandbytes 是 CUDA 版，Arc 显卡无法使用。
+#   如果安装后报 bitsandbytes 相关错误，请手动重装 XPU 版：
+#     pip install --force-reinstall bitsandbytes --extra-index-url https://pytorch.org/whl/xpu
+#
+# NVIDIA 用户无需额外操作，直接使用即可。
+
+bitsandbytes
+transformers>=4.46.0

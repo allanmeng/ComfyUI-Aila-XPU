@@ -1,0 +1,19 @@
+# 运行时（用户需运行 install_runtime.ps1 下载）
+aila_runtime/
+
+# 个人配置（含 DLL 路径，不分享）
+config.json
+
+# 临时图片缓存
+temp/
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# AI 工作记忆
+.workbuddy/
+
+# 杂项
+issue_for_aila.md
+=5.0.0
