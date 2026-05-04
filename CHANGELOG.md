@@ -11,19 +11,22 @@
 - AilaShared.dll 纳入 git 追踪，其他运行时 DLL 通过 Release 分发
 
 ### 引擎
-- Aila v0.1.0 (hotfix)
-- 修复 B580 上 subgroup size 硬编码问题，文本生成恢复正常
-- 移除 `AILA_ATTN_JM=2` 环境变量需求
+- Aila v0.1.1
+- 修复输出中的思维链（CoT）问题
+- 新增 `/think` 后缀命令
+- 修复 B580 上 subgroup size 兼容性问题
 
 ## v0.1.1 (2026-05-02)
 
 ### 插件
 - `memory_cleanup` 功能（布尔开关）
-- 引擎销毁后自动重建
 - IMAGE 输入改为可选，支持纯文本模式
+- 添加 Intel Arc 用户安装说明
 
 ### 引擎
-- Aila v0.1.0 (hotfix)
+- Aila v0.1.0
+- Qwen3.5-4B / 0.8B NF4 量化推理
+- bitsandbytes XPU 后端
 
 ## v0.1.0 (2026-05-02)
 
@@ -36,5 +39,3 @@
 
 ### 引擎
 - Aila v0.1.0
-- Qwen3.5-4B / 0.8B NF4 量化推理
-- bitsandbytes XPU 后端
