@@ -32,6 +32,10 @@ Aila 是由 [Blackwood416](https://github.com/Blackwood416) 开发的 Intel Arc 
 https://github.com/allanmeng/ComfyUI-Aila-XPU
 ```
 
+安装后还需下载运行时 DLL（首次安装需要）：
+1. 打开 [Release 页面](https://github.com/allanmeng/ComfyUI-Aila-XPU/releases) 下载 `aila_runtime_dlls.zip`
+2. 解压到 `ComfyUI/custom_nodes/ComfyUI-Aila-XPU/aila_runtime/`（与 `AilaShared.dll` 同目录）
+
 ### 方式二：从源码安装
 
 ```bash
@@ -40,6 +44,8 @@ git clone https://github.com/allanmeng/ComfyUI-Aila-XPU
 cd ComfyUI-Aila-XPU
 pip install -r requirements.txt
 ```
+
+安装后同样需要下载运行时 DLL（同上，下载 `aila_runtime_dlls.zip` 解压到 `aila_runtime/`）。
 
 ### 方式三：网盘下载
 
