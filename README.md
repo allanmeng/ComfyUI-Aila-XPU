@@ -2,12 +2,12 @@
 
 > 基于 Aila 推理引擎的 ComfyUI 插件，在 Intel Arc 显卡上实现高效的提示词反推（Captioning）。
 
-## 关于 Aila
+## 关于 [Aila 引擎 ](https://github.com/Blackwood416/Aila)
 
 Aila 是由 [Blackwood416](https://github.com/Blackwood416) 开发的 Intel Arc 推理引擎，专为 Intel GPU（含 A770、B580 等）优化。
 它利用 Intel oneDNN、SYCL 和 Level Zero 技术，在 Arc 显卡上实现了比 llama.cpp 等通用方案更优的推理性能。
 
-感谢 Aila 作者 Blackwood416 在本插件开发过程中的快速响应和积极修复！
+感谢 Aila 作者 Blackwood416 在本插件开发过程中的快速响应！
 
 ## 简介
 
@@ -31,6 +31,7 @@ Aila 是由 [Blackwood416](https://github.com/Blackwood416) 开发的 Intel Arc 
 ```
 https://github.com/allanmeng/ComfyUI-Aila-XPU
 ```
+![演示图](./images/启动器安装插件.png)
 
 安装后还需下载运行时 DLL（首次安装需要）：
 1. 打开 [Release 页面](https://github.com/allanmeng/ComfyUI-Aila-XPU/releases) 下载 `aila_runtime_dlls.zip`
@@ -51,11 +52,16 @@ pip install -r requirements.txt
 
 [https://pan.quark.cn/s/c793f4fbb990](https://pan.quark.cn/s/c793f4fbb990)
 
-网盘文件 `ComfyUI-Aila-XPU-插件本体.zip` 包含插件及运行时。
+- ComfyUI-Aila-XPU-插件本体.zip
+  把里面的`ComfyUI-Aila-XPU 文件夹`整体放到 \ComfyUI\custom_nodes\ 里面
 
-把里面的 `ComfyUI-Aila-XPU` 文件夹整体放到 `ComfyUI/custom_nodes/` 里面。
+- aila_models.zip 基础模型包
+  把里面的`aila 文件夹`整体放到 \ComfyUI\models\ 里面
+  这里面是转化好的 `qwen3.5-4b-bnb-nf4-offline` 和 `qwen3.5-0.8b-bnb-nf4-offline`
+  如果需要更多的模型，看下面的模型获取章节
 
-网盘中还包含 `demo_Aila.json` 测试工作流文件，放到 `ComfyUI/user/default/workflows/` 里面即可在 ComfyUI 工作流列表中打开。
+- demo_Aila.json  这是个测试工作流文件
+  把这个文件放到 \ComfyUI\user\default\workflows\ 里面
 
 ### Intel Arc 用户注意
 
@@ -74,6 +80,8 @@ pip install --force-reinstall bitsandbytes --extra-index-url https://pytorch.org
 
 [https://huggingface.co/collections/Blackwood416/ailas-model-collections](https://huggingface.co/collections/Blackwood416/ailas-model-collections)
 
+[https://pan.quark.cn/s/5d795bb3c417](https://pan.quark.cn/s/5d795bb3c417)
+
 下载后解压到 `ComfyUI/models/aila/` 即可使用。
 
 **或使用导出工具自行导出：**
@@ -82,7 +90,7 @@ pip install --force-reinstall bitsandbytes --extra-index-url https://pytorch.org
 python export_model.py --from-hf Qwen/Qwen3.5-4B
 ```
 
-**网盘模型文件：** `aila_models.zip` 包含以下已转化好的模型：
+**网盘中的基础模型文件：** `aila_models.zip` 包含以下已转化好的模型：
 
 - `qwen3.5-4b-bnb-nf4-offline` — 推荐，质量与速度均衡
 - `qwen3.5-0.8b-bnb-nf4-offline` — 轻量快速
