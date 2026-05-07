@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.1.3 (2026-05-07)
+
+### 插件
+- 新增 `rep_penalty` / `pres_penalty` / `freq_penalty` 三个惩罚参数（float 输入）
+- 新增 `enable_thinking` 开关（关闭后自动追加 `/no_think` 抑制思维链）
+- 新增 `debug` 开关（开启后输出 Token ID 调试日志）
+- Captioner 节点输入参数已重排，惩罚参数在 seed 下方
+
+### 引擎
+- Aila v0.1.1（未更新）
+
+---
+
 ## v0.1.2 (2026-05-04)
 
 ### 插件
