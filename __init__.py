@@ -1,6 +1,6 @@
 """Aila 提示词反推插件 - ComfyUI 插件入口"""
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 from comfy_api.latest import ComfyExtension, io
 
