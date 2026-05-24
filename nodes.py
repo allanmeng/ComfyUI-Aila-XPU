@@ -450,6 +450,45 @@ class AilaCaptioner(io.ComfyNode):
                     tooltip="生成后显存清理方式",
                     optional=True,
                 ),
+                io.Float.Input(
+                    "rep_penalty",
+                    default=1.0,
+                    min=1.0,
+                    max=5.0,
+                    step=0.01,
+                    tooltip="重复惩罚系数（>1.0 降低重复，推荐 1.0~1.2）",
+                    optional=True,
+                ),
+                io.Float.Input(
+                    "pres_penalty",
+                    default=0.0,
+                    min=0.0,
+                    max=5.0,
+                    step=0.01,
+                    tooltip="存在惩罚（>0 鼓励新话题，推荐 0.0~0.1）",
+                    optional=True,
+                ),
+                io.Float.Input(
+                    "freq_penalty",
+                    default=0.0,
+                    min=0.0,
+                    max=5.0,
+                    step=0.01,
+                    tooltip="频率惩罚（>0 降低高频词，推荐 0.0~0.1）",
+                    optional=True,
+                ),
+                io.Boolean.Input(
+                    "enable_thinking",
+                    default=True,
+                    tooltip="启用 think 思维链输出（关闭后抑制 <think> 内容）",
+                    optional=True,
+                ),
+                io.Boolean.Input(
+                    "debug",
+                    default=False,
+                    tooltip="启用调试日志（显示 Token ID 等详细信息）",
+                    optional=True,
+                ),
             ],
             outputs=[
                 io.String.Output(display_name="TEXT"),
@@ -471,6 +510,11 @@ class AilaCaptioner(io.ComfyNode):
         do_sample: bool = True,
         seed: int = 0,
         memory_cleanup: str = "persistent (不释放)",
+        rep_penalty: float = 1.0,
+        pres_penalty: float = 0.0,
+        freq_penalty: float = 0.0,
+        enable_thinking: bool = True,
+        debug: bool = False,
     ) -> io.NodeOutput:
         """执行单张或批量图像反推。"""
         try:
@@ -504,14 +548,22 @@ class AilaCaptioner(io.ComfyNode):
             cfg.top_k = top_k
             cfg.top_p = top_p
             cfg.do_sample = 1 if do_sample else 0
-            # 显式禁用 anti-loop 惩罚参数，避免 Aila 默认值导致多语言乱码
-            cfg.repetition_penalty = 1.0
-            cfg.presence_penalty = 0.0
-            cfg.frequency_penalty = 0.0
+            cfg.repetition_penalty = rep_penalty
+            cfg.presence_penalty = pres_penalty
+            cfg.frequency_penalty = freq_penalty
             if seed > 0:
-                # Aila 的 AilaGenConfig 没有 seed 字段，这里只做标记
-                # 实际 seed 通过 CLI 参数设置，但 C API 没有暴露 seed
                 pass
+
+            # 调试日志
+            if debug:
+                os.environ["AILA_DEBUG_TOKEN_IDS"] = "1"
+            elif "AILA_DEBUG_TOKEN_IDS" in os.environ:
+                del os.environ["AILA_DEBUG_TOKEN_IDS"]
+
+            # Think 模式控制
+            final_user_prompt = user_prompt
+            if not enable_thinking:
+                final_user_prompt = user_prompt.strip() + " /no_think" if user_prompt else "/no_think"
 
             results = []
             tmp_files = []
@@ -535,7 +587,7 @@ class AilaCaptioner(io.ComfyNode):
                 # 构建 messages（有图模式）
                 content: list[dict] = [
                     {"type": "image", "image": tmp_path},
-                    {"type": "text", "text": user_prompt},
+                    {"type": "text", "text": final_user_prompt},
                 ]
 
                 messages = [
@@ -544,9 +596,9 @@ class AilaCaptioner(io.ComfyNode):
                 ]
 
                 messages_json = json.dumps(messages, ensure_ascii=False)
-                print(f"[Aila Captioner] Image path: {tmp_path}")
-                print(f"[Aila Captioner] System: {sp[:100]}")
-                print(f"[Aila Captioner] User: {user_prompt[:100]}")
+                print(f"[Aila Engine] Image path: {tmp_path}")
+                print(f"[Aila Engine] System: {sp[:100]}")
+                print(f"[Aila Engine] User: {final_user_prompt[:100]}")
 
                 # 调用 Aila C API
                 result_ptr = lib.aila_generate_messages(
@@ -573,12 +625,12 @@ class AilaCaptioner(io.ComfyNode):
                 # 纯文本模式（不接图片）
                 messages = [
                     {"role": "system", "content": sp},
-                    {"role": "user", "content": user_prompt},
+                    {"role": "user", "content": final_user_prompt},
                 ]
 
                 messages_json = json.dumps(messages, ensure_ascii=False)
-                print(f"[Aila Captioner] System: {sp[:100]}")
-                print(f"[Aila Captioner] User: {user_prompt[:100]}")
+                print(f"[Aila Engine] System: {sp[:100]}")
+                print(f"[Aila Engine] User: {final_user_prompt[:100]}")
 
                 result_ptr = lib.aila_generate_messages(
                     engine,
