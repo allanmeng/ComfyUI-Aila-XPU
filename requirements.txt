@@ -1,10 +1,5 @@
 # Aila XPU Captioner 插件依赖
-#
-# 注意：将 XPU 索引设为首选源，确保 Intel Arc 用户安装到正确的 bitsandbytes
-# NVIDIA 用户不受影响（XPU 索引无 CUDA 包，回退 PyPI 也装得到）
-
---index-url https://pytorch.org/whl/xpu
---extra-index-url https://pypi.org/simple
+# bitsandbytes 0.49+ 已支持自动检测 XPU 后端，无需特殊索引
 
 bitsandbytes
 transformers>=4.46.0
