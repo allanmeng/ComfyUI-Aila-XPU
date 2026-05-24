@@ -3,8 +3,12 @@
 ## v0.1.5 (2026-05-24)
 
 ### 插件
-- 新增 Intel Arc 用户自动检测 + 自动安装 XPU 版 bitsandbytes
-- 降低新手安装门槛
+- `requirements.txt` 首选 XPU 索引，新用户一步到位安装 XPU 版 bitsandbytes
+- `__init__.py` 新增 Intel Arc 自动检测 + 自动修复（为已有 CUDA 版 bnb 的用户兜底）
+- 新手安装零门槛，无需手动命令
+
+### 引擎
+- Aila v0.1.2（未更新）
 
 ---
 
