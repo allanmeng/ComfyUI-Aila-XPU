@@ -1,8 +1,10 @@
-# Aila Captioner Plugin 依赖
+# Aila XPU Captioner 插件依赖
 #
-# ComfyUI 启动时会自动 pip install -r requirements.txt
-# Intel Arc 用户无需手动操作：插件启动时自动检测并安装 XPU 版 bitsandbytes
-# NVIDIA 用户无需额外操作，直接使用即可。
+# 注意：将 XPU 索引设为首选源，确保 Intel Arc 用户安装到正确的 bitsandbytes
+# NVIDIA 用户不受影响（XPU 索引无 CUDA 包，回退 PyPI 也装得到）
+
+--index-url https://pytorch.org/whl/xpu
+--extra-index-url https://pypi.org/simple
 
 bitsandbytes
 transformers>=4.46.0
