@@ -1,5 +1,6 @@
-# Aila XPU Captioner 插件依赖
+# Aila XPU Captioner / Transcriber 插件依赖
 # bitsandbytes 0.49+ 已支持自动检测 XPU 后端，无需特殊索引
 
 bitsandbytes
 transformers>=4.46.0
+soundfile

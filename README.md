@@ -1,6 +1,6 @@
 # ComfyUI-Aila-XPU
 
-> 基于 Aila 推理引擎的 ComfyUI 插件，在 Intel Arc 显卡上实现高效的提示词反推（Captioning）。
+> 基于 Aila 推理引擎的 ComfyUI 插件，在 Intel Arc 显卡上实现高效的 LLM 提示词反推、ASR 语音转录、TTS 语音合成。
 >
 > [**English Docs**](./README_EN.md)
 
@@ -13,14 +13,34 @@ Aila 是由 [Blackwood416](https://github.com/Blackwood416) 开发的 Intel Arc 
 
 ## 简介
 
-本插件通过 [Aila](https://github.com/Blackwood416/Aila) 推理引擎调用 **Qwen3.5 多模态大模型**，在 **Intel Arc 系列显卡（含 B580）** 上对图片进行提示词反推。支持 SD 提示词、中文描述、Danbooru 标签三种输出模式。
+本插件通过 [Aila](https://github.com/Blackwood416/Aila) 推理引擎调用 **Qwen 系列模型**，在 **Intel Arc 系列显卡（含 B580）** 上提供三大功能：
+
+- **LLM Captioner** — 图片提示词反推（SD 提示词、中文描述、Danbooru 标签），也支持纯文本问答
+- **ASR Transcriber** — 语音转文字，支持短音频和长音频分段转录
+- **TTS Synthesizer** — 文字转语音，支持自动分段合成长文本
 
 ## 效果
+
+### LLM Captioner
 
 | 模型 | 显存占用 | 预填充速度 | 解码速度 |
 |:----|:--------:|:----------:|:--------:|
 | Qwen3.5-4B NF4 | ~4.5 GB | ~1050 tok/s | ~57 tok/s |
 | Qwen3.5-0.8B NF4 | ~1.8 GB | ~3870 tok/s | ~144 tok/s |
+
+### ASR Transcriber (77s 音频, Aila v0.1.4)
+
+| 模型 | 显存占用 | 耗时 | 速度 |
+|:----|:--------:|:----:|:----:|
+| Qwen3-ASR-1.7B BF16 | ~7.3 GB | 19.7s | 3.9x |
+| Qwen3-ASR-1.7B BNB NF4 | **~3.4 GB** | **11.4s** | **6.8x** |
+
+### TTS Synthesizer
+
+| 模型 | 显存占用 |
+|:----|:--------:|
+| Qwen3-TTS-12Hz-0.6B-Base | ~2.2 GB |
+| Qwen3-TTS-12Hz-1.7B-Base | ~6.7 GB |
 
 *以上数据基于 Intel Arc B580 12GB 实测*
 
@@ -54,73 +74,86 @@ pip install -r requirements.txt
 
 [https://pan.quark.cn/s/c793f4fbb990](https://pan.quark.cn/s/c793f4fbb990)
 
-- ComfyUI-Aila-XPU-插件本体.zip
-  把里面的`ComfyUI-Aila-XPU 文件夹`整体放到 \ComfyUI\custom_nodes\ 里面
-
-- aila_models.zip 基础模型包
-  把里面的`aila 文件夹`整体放到 \ComfyUI\models\ 里面
-  这里面是转化好的 `qwen3.5-4b-bnb-nf4-offline` 和 `qwen3.5-0.8b-bnb-nf4-offline`
-  如果需要更多的模型，看下面的模型获取章节
-
-- demo_Aila.json  这是个测试工作流文件
-  把这个文件放到 \ComfyUI\user\default\workflows\ 里面
-
 ### Intel Arc 用户注意
 
-插件依赖 `bitsandbytes`，ComfyUI 启动时会自动安装。
-默认安装的 `bitsandbytes` 是 NVIDIA CUDA 版，Intel Arc 用户需手动重装为 XPU 版：
-
-```bash
-pip install --force-reinstall bitsandbytes --extra-index-url https://pytorch.org/whl/xpu
-```
+插件依赖 `bitsandbytes`，启动 ComfyUI 时插件会自动检测：
+- 若检测到当前安装的是 NVIDIA CUDA 版，会自动替换为 XPU 版
+- Intel Arc 用户**无需手动操作**
 
 ## 模型获取
 
-模型文件放到 `ComfyUI/models/aila/` 目录下即可使用。
+### 支持的模型
+
+| 模型 | 格式 | 用途 | 推荐 | 存放位置 |
+|:----|:----|:----|:----:|:---------|
+| Qwen3.5-4B | [NF4](https://huggingface.co/Blackwood416/Qwen3.5-4B-BNB-NF4-with-vision), [BF16](https://huggingface.co/Qwen/Qwen3.5-4B) | VLM图像反推/LLM纯文本 | **推荐 LLM (NF4)** | `models/aila/` |
+| Qwen3.5-0.8B | [NF4](https://huggingface.co/Blackwood416/Qwen3.5-0.8B-BNB-NF4-with-vision), [BF16](https://huggingface.co/Qwen/Qwen3.5-0.8B) | VLM图像反推/LLM纯文本 | 轻量快速 | `models/aila/` |
+| huihui-Qwen3.5-4B-abliterated | [NF4](https://huggingface.co/huihui-ai/Qwen3.5-4B-abliterated), [BF16](https://huggingface.co/huihui-ai/Qwen3.5-4B-abliterated) | VLM图像反推/LLM纯文本 | Abliterated | `models/aila/` |
+| Qwen3-4B | [NF4](https://huggingface.co/Blackwood416/Qwen3-4B-BNB-NF4), [BF16](https://huggingface.co/Qwen/Qwen3-4B) | LLM 纯文本 | 纯文本推理 | `models/aila/` |
+| Qwen3-0.6B | [NF4](https://huggingface.co/Blackwood416/Qwen3-0.6B-BNB-NF4), [BF16](https://huggingface.co/Qwen/Qwen3-0.6B) | LLM 纯文本 | 纯文本测试 | `models/aila/` |
+| Qwen3-ASR-1.7B | [NF4](https://huggingface.co/Blackwood416/Qwen3-ASR-1.7B-BNB-NF4), [BF16](https://huggingface.co/Qwen/Qwen3-ASR-1.7B) | ASR 语音转录 | **推荐 ASR (NF4)** | `models/aila/asr/` |
+| Qwen3-ASR-0.6B | [NF4](https://huggingface.co/Blackwood416/Qwen3-ASR-0.6B-BNB-NF4), [BF16](https://huggingface.co/Qwen/Qwen3-ASR-0.6B) | ASR 语音转录 | 轻量快速 | `models/aila/asr/` |
+| Qwen3-TTS-12Hz-1.7B-Base | [BF16](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-Base) | TTS 语音合成 | 质量更好 | `models/aila/tts/` |
+| Qwen3-TTS-12Hz-0.6B-Base | [BF16](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-Base) | TTS 语音合成 | 轻量快速 | `models/aila/tts/` |
+
+### 下载模型
 
 **推荐：直接下载已导出的 NF4 模型（即下即用，无需导出）：**
 
-[https://huggingface.co/collections/Blackwood416/ailas-model-collections](https://huggingface.co/collections/Blackwood416/ailas-model-collections)
-
-[https://pan.quark.cn/s/5d795bb3c417](https://pan.quark.cn/s/5d795bb3c417)
-
-下载后解压到 `ComfyUI/models/aila/` 即可使用。
+- [Blackwood416 的 HF 收藏集](https://huggingface.co/collections/Blackwood416/ailas-model-collections) — LLM + ASR NF4 模型
+- [夸克网盘](https://pan.quark.cn/s/5d795bb3c417) — 基础模型包（部分推荐的模型）
 
 **或使用导出工具自行导出：**
 
 ```bash
-python export_model.py --from-hf Qwen/Qwen3.5-4B
+# LLM 模型
+python export_model.py --from-hf Blackwood416/Qwen3.5-4B-BNB-NF4-with-vision
+python export_model.py --from-hf Blackwood416/Qwen3.5-0.8B-BNB-NF4-with-vision
+
+# ASR 模型（NF4 格式）
+python export_model.py --from-hf Blackwood416/Qwen3-ASR-1.7B-BNB-NF4
+python export_model.py --from-hf Blackwood416/Qwen3-ASR-0.6B-BNB-NF4
+
+# TTS 模型（BF16 格式）
+python export_model.py --from-hf Qwen/Qwen3-TTS-12Hz-1.7B-Base
+python export_model.py --from-hf Qwen/Qwen3-TTS-12Hz-0.6B-Base
 ```
 
-**网盘中的基础模型文件：** `aila_models.zip` 包含以下已转化好的模型：
+### 模型存放位置
 
-- `qwen3.5-4b-bnb-nf4-offline` — 推荐，质量与速度均衡
-- `qwen3.5-0.8b-bnb-nf4-offline` — 轻量快速
+下载后按用途放到对应目录：
 
-把里面的 `aila` 文件夹整体放到 `ComfyUI/models/` 里面。
-
-**支持的模型：**
-
-| 模型 | 架构 | 视觉 | 大小 | 推荐场景 |
-|:----|:----:|:----:|:----:|:---------|
-| Qwen3.5-4B | Hybrid | ✅ 有 | ~3.6 GB | **推荐**，质量与速度均衡 |
-| Qwen3.5-0.8B | Hybrid | ✅ 有 | ~942 MB | 轻量快速，质量一般 |
-| huihui-Qwen3.5-4B-abliterated | Hybrid | ✅ 有 | ~3.6 GB | Abliterated 版本 |
-| Qwen3-4B | Dense | ❌ 无 | ~2.4 GB | 纯文本推理 |
-| Qwen3-0.6B | Dense | ❌ 无 | ~525 MB | 纯文本测试 |
+| 用途 | 目录 |
+|:----|:-----|
+| VLM图像反推/LLM纯文本 | `ComfyUI/models/aila/` 或 `ComfyUI/models/aila/llm/` |
+| ASR 语音转录 | `ComfyUI/models/aila/asr/` |
+| TTS 语音合成 | `ComfyUI/models/aila/tts/` |
 
 ## 使用方法
 
-1. **添加 `Aila Model Loader (XPU)` 节点**
-   - 选择你下载的模型
-   - 点击执行加载
+插件包含 6 个节点，按功能分三组：
 
-2. **添加 `Aila Engine (XPU)` 节点**
-   - 将 Model Loader 的输出连接到 Engine 的 `aila_model` 输入
-   - 将需要反推的图片连接到 `images` 输入（可选，不接则为纯文本模式）
-   - 配置参数后执行
+### VLM图像反推/LLM纯文本
 
-### 节点参数
+| 节点 | 功能 |
+|:----|:-----|
+| `Aila LLM Loader (XPU)` | 加载 LLM/VLM 模型 |
+| `Aila LLM Captioner (XPU)` | 图片反推（接图片）或纯文本问答（不接图片） |
+
+**图片反推工作流：**
+1. 添加 `Aila LLM Loader (XPU)` → 选择模型 → 执行加载
+2. 添加 `Aila LLM Captioner (XPU)` → 连接 Loader 的 `MODEL` 输出
+3. 将图片连接到 `images` 输入
+4. 配置 `mode`（prompt/caption/danbooru）、`user_prompt`、`system_prompt` 等参数
+5. 执行 → 输出 `TEXT`
+
+**纯文本问答工作流：**
+1. 添加 `Aila LLM Loader (XPU)` → 选择纯文本模型（无视觉标注）
+2. 添加 `Aila LLM Captioner (XPU)` → 不连接图片输入
+3. 问题写在 `user_prompt`，角色设定写在 `system_prompt`
+4. 执行 → 输出 `TEXT`
+
+#### LLM Captioner 参数
 
 | 参数 | 说明 |
 |:----|:-----|
@@ -132,15 +165,63 @@ python export_model.py --from-hf Qwen/Qwen3.5-4B
 | `top_p` / `top_k` | 采样参数 |
 | `do_sample` | 启用采样（关闭则为贪心解码） |
 | `seed` | 随机种子（0=随机） |
-| `memory_cleanup` | `persistent (不释放)` 保留引擎加速连续生成 / `full_cleanup (释放显存, 清理缓存)` 生成后释放 GPU 显存 |
+| `memory_cleanup` | 生成后显存处理方式 |
 
-### 三种 mode 说明
+**三种 mode 说明：**
 
 | 模式 | 输出语言 | 输出风格 | 适合场景 |
 |:----:|:--------:|:---------|:---------|
 | **prompt** | 英文 | 一段完整的 SD 提示词 | 直接复制到 positive prompt 使用 |
 | **caption** | 中文 | 详细的自然语言描述 | 看图说话、记录内容 |
 | **danbooru** | 英文 | 逗号分隔的 Danbooru 风格标签 | 给图片打标签 |
+
+### ASR 语音转录
+
+| 节点 | 功能 |
+|:----|:-----|
+| `Aila ASR Loader (XPU)` | 加载 ASR 模型 |
+| `Aila ASR Transcriber (XPU)` | 语音转文字 |
+
+**工作流：**
+1. 添加 `Aila ASR Loader (XPU)` → 选择 ASR 模型 → 执行加载
+2. 添加 `Aila ASR Transcriber (XPU)` → 连接 Loader 的 `ASR_MODEL` 输出
+3. 音频（WAV/MP3 等）连接到 `audio` 输入
+4. 执行 → 输出 `TEXT`
+
+#### ASR Transcriber 参数
+
+| 参数 | 默认 | 说明 |
+|:----|:----:|:------|
+| `forced_lang` | auto | 强制指定音频语言，提高准确率 |
+| `asr_system` | 空 | 转录上下文提示（如"这是一个计算机技术讲座"） |
+| `asr_segment` | -1 | 分段时长（秒）。-1/0=不分段，>0 按秒分段。长音频推荐 30~60 秒 |
+| `max_tokens` | 1024 | 最大转录长度 |
+| `seed` | 0 | 随机种子 |
+| `memory_cleanup` | persistent | 显存处理方式 |
+
+### TTS 语音合成
+
+| 节点 | 功能 |
+|:----|:-----|
+| `Aila TTS Loader (XPU)` | 加载 TTS 模型 |
+| `Aila TTS Synthesizer (XPU)` | 文字转语音 |
+
+**工作流：**
+1. 添加 `Aila TTS Loader (XPU)` → 选择 TTS 模型 → 执行加载
+2. 添加 `Aila TTS Synthesizer (XPU)` → 连接 Loader 的 `TTS_MODEL` 输出
+3. 在 `text` 输入要合成的文字
+4. 执行 → 输出 `AUDIO`
+
+#### TTS Synthesizer 参数
+
+| 参数 | 默认 | 说明 |
+|:----|:----:|:------|
+| `text` | 必填 | 要合成语音的文本 |
+| `max_new_tokens` | -1 | 每段最大 token 数。-1=8192（约19分钟，基本不限） |
+| `auto_segment` | False | 按句号分句分段合成，再拼接为完整音频。长文本推荐开启 |
+| `seed` | 0 | 随机种子 |
+| `memory_cleanup` | persistent | 显存处理方式 |
+| `debug` | False | 调试日志 |
 
 ## 技术说明
 

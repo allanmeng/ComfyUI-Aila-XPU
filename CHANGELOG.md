@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.1.6 (2026-06-02)
+
+### 插件
+- **新增 ASR 语音转录**：Aila ASR Loader + Aila ASR Transcriber 两个节点
+- **新增 TTS 语音合成**：Aila TTS Loader + Aila TTS Synthesizer 两个节点
+- 节点命名统一，执行节点带模型类型前缀（LLM / ASR / TTS）
+- 修复 `aila_transcribe` ctypes 指针处理错误（0xc0000374 堆损坏崩溃）
+- 修复 `aila_free_string(lang_ptr.value)` 访问违规崩溃
+- ASR Transcriber 移除 `asr_past` 参数，`asr_segment` 默认改为 -1（-1/0=不分段）
+- TTS Synthesizer 支持 `auto_segment` 按句分段合成 + `max_new_tokens` 控制
+- TTS 模型扫描 `models/aila/tts/`，支持 Qwen3-TTS-12Hz-0.6B/1.7B-Base
+- ASR 模型扫描 `models/aila/asr/`，支持 Qwen3-ASR-0.6B/1.7B（NF4 / BF16）
+- `.gitignore` 增加 `Aila.exe` 追踪
+- README 大更新：新增 ASR/TTS 内容、模型表格带下载链接、目录说明
+
+### 引擎
+- Aila v0.1.4
+- 新增 Qwen3-TTS Base 模型推理支持（CLI + API）
+- 新增 Qwen3-ASR NF4 量化支持
+- 新增音频转录流式支持
+- ASR 转录性能 10x 提升（1.7B 模型超实时）
+- 集成 llama.cpp jinja 引擎，支持 OpenAI 兼容 JSON 格式输入
+
+---
+
+### 插件
+- `requirements.txt` 首选 XPU 索引，新用户一步到位安装 XPU 版 bitsandbytes
+- `__init__.py` 新增 Intel Arc 自动检测 + 自动修复（为已有 CUDA 版 bnb 的用户兜底）
+- 新手安装零门槛，无需手动命令
+
+### 引擎
+- Aila v0.1.2（未更新）
+
+---
+
 ## v0.1.5 (2026-05-24)
 
 ### 插件

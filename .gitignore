@@ -1,6 +1,8 @@
-# 运行时大文件（排除 AilaShared.dll，其余放 Release）
+# 运行时大文件（dll 和 exe 随引擎更新频繁，入 Git 方便用户）
+# 其余运行时 DLLs（约 160MB）放 Release 下载
 aila_runtime/*
 !aila_runtime/AilaShared.dll
+!aila_runtime/Aila.exe
 
 # 配置模板（用户应使用 config.json）
 config.example.json
@@ -18,3 +20,5 @@ __pycache__/
 # 杂项
 issue_for_aila.md
 =5.0.0
+aila_runtime_dlls.zip
+images/*.md

@@ -78,6 +78,10 @@ def get_model_folders() -> List[Path]:
     config = load_config()
     user_folders = [Path(f) for f in config.get("model_folders", []) if os.path.exists(f)]
     default_folders = [AILA_MODEL_DIR] if AILA_MODEL_DIR.exists() else []
+    # 也扫描 aila/llm/ 子目录，兼容新路径
+    llm_sub = AILA_MODEL_DIR / "llm"
+    if llm_sub.exists():
+        default_folders.append(llm_sub)
     return default_folders + user_folders
 
 
@@ -165,6 +169,37 @@ def _bind_functions(lib: ctypes.CDLL):
     lib.aila_last_error_code.restype = ctypes.c_int
     lib.aila_last_error_message.argtypes = [ctypes.c_void_p]
     lib.aila_last_error_message.restype = ctypes.c_char_p
+
+    # ASR 转录
+    lib.aila_transcribe.argtypes = [
+        ctypes.c_void_p,                   # engine
+        ctypes.c_char_p,                   # wav_path
+        ctypes.POINTER(AilaGenConfig),     # config (可 NULL)
+        ctypes.c_char_p,                   # forced_language (可 NULL)
+        ctypes.c_char_p,                   # system_prompt (可 NULL)
+        ctypes.c_float,                    # segment_sec
+        ctypes.c_int,                      # past_text_conditioning
+        ctypes.c_void_p,                   # token_callback (NULL)
+        ctypes.c_void_p,                   # user_data (NULL)
+        ctypes.POINTER(ctypes.c_char_p),   # language_out (输出)
+    ]
+    lib.aila_transcribe.restype = ctypes.c_void_p
+
+    # TTS 合成
+    lib.aila_synthesize_text_to_wav.argtypes = [
+        ctypes.c_void_p,                   # engine
+        ctypes.c_char_p,                   # text
+        ctypes.POINTER(ctypes.c_float),    # speaker_embedding (可 NULL)
+        ctypes.c_int,                      # speaker_embedding_len
+        ctypes.POINTER(AilaGenConfig),     # config (可 NULL)
+        ctypes.POINTER(ctypes.POINTER(ctypes.c_float)),  # out_samples (输出)
+        ctypes.POINTER(ctypes.c_int),      # out_sample_count (输出)
+    ]
+    lib.aila_synthesize_text_to_wav.restype = ctypes.c_int
+
+    # 音频采样释放
+    lib.aila_free_samples.argtypes = [ctypes.POINTER(ctypes.c_float)]
+    lib.aila_free_samples.restype = None
 
 
 def load_aila_library(dll_path: Path) -> ctypes.CDLL:
@@ -290,7 +325,7 @@ class AilaModelLoader(io.ComfyNode):
 
         return io.Schema(
             node_id="AilaModelLoader",
-            display_name="Aila Model Loader (XPU)",
+            display_name="Aila LLM Loader (XPU)",
             category="Aila",
             inputs=[
                 io.Combo.Input(
@@ -355,12 +390,12 @@ class AilaCaptioner(io.ComfyNode):
     def define_schema(cls) -> io.Schema:
         return io.Schema(
             node_id="AilaCaptioner",
-            display_name="Aila Engine (XPU)",
+            display_name="Aila LLM Captioner (XPU)",
             category="Aila",
             inputs=[
                 io.Custom("AILA_MODEL").Input(
                     "aila_model",
-                    tooltip="来自 Aila Model Loader 的模型",
+                    tooltip="来自 Aila LLM Loader 的模型",
                 ),
                 io.Image.Input(
                     "images",
@@ -520,7 +555,7 @@ class AilaCaptioner(io.ComfyNode):
         try:
             # 校验输入
             if not isinstance(aila_model, dict) or "model_path" not in aila_model:
-                raise ValueError("无效的模型数据，请从 Aila Model Loader 连接")
+                raise ValueError("无效的模型数据，请从 Aila LLM Loader 连接")
 
             model_path = aila_model["model_path"]
             engine_entry = _aila_engines.get(model_path)
@@ -685,3 +720,620 @@ class AilaCaptioner(io.ComfyNode):
 
 import atexit
 atexit.register(_shutdown_all_engines)
+
+
+# ─── ASR 模型目录 ─────────────────────────────────────────────────────────
+
+AILA_ASR_MODEL_DIR = AILA_MODEL_DIR / "asr"
+AILA_ASR_MODEL_DIR.mkdir(exist_ok=True)
+
+
+def find_aila_asr_models() -> List[str]:
+    """扫描 models/aila/asr/ 目录，返回可用的 ASR 模型名称列表。"""
+    models = []
+    if not AILA_ASR_MODEL_DIR.is_dir():
+        return models
+    for sub in sorted(AILA_ASR_MODEL_DIR.iterdir()):
+        if not sub.is_dir():
+            continue
+        if (sub / "config.json").exists():
+            models.append(sub.name)
+    return models
+
+
+# ─── 语音转 WAV 辅助 ───────────────────────────────────────────────────────
+
+import soundfile as sf
+import numpy as np
+
+
+def _save_audio_to_wav(waveform: torch.Tensor, sample_rate: int, output_path: str):
+    """将 ComfyUI AUDIO tensor 保存为临时 WAV 文件。
+
+    Args:
+        waveform: shape (batch, channels, samples) 或 (1, channels, samples)
+        sample_rate: 采样率
+        output_path: 输出 WAV 文件路径
+    """
+    wav = waveform[0]                     # (channels, samples)
+    if wav.shape[0] > 1:
+        wav = torch.mean(wav, dim=0)      # 多声道 → 单声道
+    else:
+        wav = wav.squeeze(0)              # (samples,)
+    np_wav = wav.cpu().numpy().astype(np.float32)
+    sf.write(output_path, np_wav, sample_rate, format="WAV")
+
+
+ASR_SUPPORTED_LANGUAGES = [
+    "auto",
+    "Chinese", "English", "Cantonese", "Arabic", "German", "French", "Spanish",
+    "Portuguese", "Indonesian", "Italian", "Korean", "Russian", "Thai",
+    "Vietnamese", "Japanese", "Turkish", "Hindi", "Malay", "Dutch", "Swedish",
+    "Danish", "Finnish", "Polish", "Czech", "Filipino", "Persian", "Greek",
+    "Hungarian", "Macedonian", "Romanian",
+]
+
+
+# ─── 节点：AilaASRLoader ───────────────────────────────────────────────────
+
+class AilaASRLoader(io.ComfyNode):
+    """加载 Aila ASR 语音识别模型。"""
+
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        models = find_aila_asr_models()
+        if not models:
+            models = ["<未找到 ASR 模型，请将模型放入 models/aila/asr/>"]
+
+        return io.Schema(
+            node_id="AilaASRLoader",
+            display_name="Aila ASR Loader (XPU)",
+            category="Aila",
+            inputs=[
+                io.Combo.Input(
+                    "model_name",
+                    options=models,
+                    tooltip="选择 ASR 模型（目录中有 config.json）",
+                ),
+                io.Int.Input(
+                    "max_seq_len",
+                    default=4096,
+                    min=512,
+                    max=32768,
+                    tooltip="最大序列长度。ASR 场景 2048 足够，不分段长录音时需加大",
+                    optional=True,
+                ),
+            ],
+            outputs=[
+                io.Custom("AILA_ASR_MODEL").Output(display_name="ASR_MODEL"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, model_name: str, max_seq_len: int = 4096) -> io.NodeOutput:
+        try:
+            model_path = AILA_ASR_MODEL_DIR / model_name
+            if not model_path.is_dir():
+                raise FileNotFoundError(
+                    f"找不到 ASR 模型目录: {model_name}。"
+                    f" 请将模型放入 {AILA_ASR_MODEL_DIR}"
+                )
+
+            dll_path = get_dll_path()
+            if dll_path is None:
+                raise FileNotFoundError(
+                    "找不到 AilaShared.dll。"
+                    " 请确保已下载 Aila 发行版并配置 config.json"
+                )
+
+            engine = _get_or_create_engine(dll_path, str(model_path), max_seq_len)
+
+            return io.NodeOutput({
+                "model_name": model_name,
+                "model_path": str(model_path),
+                "dll_path": str(dll_path),
+                "max_seq_len": max_seq_len,
+            })
+
+        except Exception as e:
+            raise RuntimeError(f"AilaASRLoader 失败: {e}")
+
+
+# ─── 节点：AilaTranscriber ─────────────────────────────────────────────────
+
+class AilaTranscriber(io.ComfyNode):
+    """基于 Aila ASR 模型的语音转文字。"""
+
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="AilaTranscriber",
+            display_name="Aila ASR Transcriber (XPU)",
+            category="Aila",
+            inputs=[
+                io.Custom("AILA_ASR_MODEL").Input(
+                    "aila_model",
+                    tooltip="来自 Aila ASR Loader 的模型",
+                ),
+                io.Audio.Input(
+                    "audio",
+                    tooltip="输入音频 (WAV)",
+                    optional=False,
+                ),
+                io.Combo.Input(
+                    "forced_lang",
+                    options=ASR_SUPPORTED_LANGUAGES,
+                    default="auto",
+                    tooltip="强制指定音频语言，提高转录准确率。设为 auto 让模型自动检测",
+                    optional=True,
+                ),
+                io.String.Input(
+                    "asr_system",
+                    multiline=True,
+                    default="",
+                    tooltip="转录上下文提示，让模型更准确识别特定场景的词。比如：这是一个关于计算机技术的讲座",
+                    optional=True,
+                ),
+                io.Float.Input(
+                    "asr_segment",
+                    default=-1.0,
+                    min=-1.0,
+                    max=300.0,
+                    step=1.0,
+                    tooltip="音频分段处理时长（秒）。-1或0=不分段，>0按此秒数分段如30。长音频推荐30~60秒",
+                    optional=True,
+                ),
+                io.Int.Input(
+                    "max_tokens",
+                    default=1024,
+                    min=64,
+                    max=8192,
+                    tooltip="最大转录长度。10秒音频约需256，1分钟约512，6分钟约2048",
+                    optional=True,
+                ),
+                io.Int.Input(
+                    "seed",
+                    default=0,
+                    min=0,
+                    max=2147483647,
+                    control_after_generate=True,
+                    tooltip="随机种子。0=每次结果可能不同；固定值可复现相同转录结果",
+                    optional=True,
+                ),
+                io.Combo.Input(
+                    "memory_cleanup",
+                    options=[
+                        "persistent (不释放)",
+                        "full_cleanup (释放显存, 清理缓存)",
+                    ],
+                    default="persistent (不释放)",
+                    tooltip="转录完成后显存处理方式。persistent=继续占用加速连续转录；full_cleanup=释放给其他模型用",
+                    optional=True,
+                ),
+                io.Boolean.Input(
+                    "debug",
+                    default=False,
+                    tooltip="开启后控制台显示引擎详细日志和 Token ID 信息，排查问题用",
+                    optional=True,
+                ),
+            ],
+            outputs=[
+                io.String.Output(display_name="TEXT"),
+            ],
+        )
+
+    @classmethod
+    def execute(
+        cls,
+        aila_model: Dict[str, Any],
+        audio: Dict[str, Any],
+        forced_lang: str = "auto",
+        asr_system: str = "",
+        asr_segment: float = -1.0,
+        max_tokens: int = 1024,
+        seed: int = 0,
+        memory_cleanup: str = "persistent (不释放)",
+        debug: bool = False,
+    ) -> io.NodeOutput:
+        """执行语音转文字。"""
+        tmp_path = None
+        try:
+            # 校验输入
+            if not isinstance(aila_model, dict) or "model_path" not in aila_model:
+                raise ValueError("无效的模型数据，请从 Aila ASR Loader 连接")
+
+            if audio is None:
+                raise ValueError("请连接音频输入")
+
+            model_path = aila_model["model_path"]
+            engine_entry = _aila_engines.get(model_path)
+            if engine_entry is None:
+                dll_path = get_dll_path()
+                if dll_path is None:
+                    raise RuntimeError("找不到 AilaShared.dll，请检查配置")
+                _get_or_create_engine(dll_path, model_path)
+                engine_entry = _aila_engines.get(model_path)
+                if engine_entry is None:
+                    raise RuntimeError(f"自动重载模型 '{model_path}' 失败")
+
+            lib = engine_entry["lib"]
+            engine = engine_entry["engine"]
+
+            # 调试日志
+            if debug:
+                os.environ["AILA_DEBUG_TOKEN_IDS"] = "1"
+            elif "AILA_DEBUG_TOKEN_IDS" in os.environ:
+                del os.environ["AILA_DEBUG_TOKEN_IDS"]
+
+            # 提取音频数据并保存为临时 WAV
+            waveform = audio["waveform"]       # (batch, channels, samples)
+            sample_rate = audio["sample_rate"]  # int
+
+            global _TEMP_COUNTER
+            _TEMP_COUNTER += 1
+            tmp_path = str(TEMP_DIR / f"aila_asr_{_TEMP_COUNTER:06d}.wav")
+            _save_audio_to_wav(waveform, sample_rate, tmp_path)
+            print(f"[Aila Transcriber] Audio saved: {tmp_path} (sr={sample_rate})")
+
+            # 生成参数
+            cfg = lib.aila_default_gen_config()
+            cfg.max_new_tokens = max_tokens
+            cfg.temperature = 0.0  # ASR 推荐贪心解码
+            cfg.do_sample = 0
+
+            # 语言参数
+            forced_lang_c = forced_lang.encode("utf-8") if forced_lang and forced_lang != "auto" else None
+            asr_system_c = asr_system.encode("utf-8") if asr_system.strip() else "请准确转录音频内容。".encode("utf-8")
+
+            # 接收检测到的语言
+            lang_ptr = ctypes.c_char_p()
+
+            # 分段：-1或0=不分段，>0按秒分段
+            seg_sec = max(0.0, asr_segment)
+
+            result_ptr = lib.aila_transcribe(
+                engine,
+                tmp_path.encode("utf-8"),
+                ctypes.byref(cfg),
+                forced_lang_c,
+                asr_system_c,
+                ctypes.c_float(seg_sec),
+                0,  # past_text_conditioning (已移除，统一关闭)
+                None,  # token_callback
+                None,  # user_data
+                ctypes.byref(lang_ptr),
+            )
+
+            if not result_ptr:
+                err = _get_aila_error(lib, engine)
+                print(f"[Aila Transcriber] ERROR: {err}")
+                raise RuntimeError(f"Aila ASR 推理失败: {err}")
+
+            # 从原始指针读取字符串（c_void_p 需用 string_at）
+            raw_bytes = ctypes.string_at(result_ptr)
+            text = raw_bytes.decode("utf-8", errors="replace")
+            detected_lang = lang_ptr.value.decode("utf-8", errors="replace") if lang_ptr.value else ""
+
+            print(f"[Aila Transcriber] Result: {text[:200]}")
+            if detected_lang:
+                print(f"[Aila Transcriber] Detected language: {detected_lang}")
+            lib.aila_free_string(result_ptr)
+            if lang_ptr.value:
+                lib.aila_free_string(lang_ptr)
+
+            # 清理临时文件
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+
+            # 显存清理
+            cleanup_key = memory_cleanup.split(" (")[0] if " (" in memory_cleanup else memory_cleanup
+            if cleanup_key == "full_cleanup":
+                print(f"[Aila Transcriber] 彻底清理: {model_path} + XPU 缓存")
+                _shutdown_engine(model_path)
+                try:
+                    if hasattr(torch, "xpu") and torch.xpu.is_available():
+                        torch.xpu.empty_cache()
+                        torch.xpu.synchronize()
+                except Exception:
+                    pass
+
+            return io.NodeOutput(text)
+
+        except Exception as e:
+            # 清理临时文件
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+            raise RuntimeError(f"AilaTranscriber 失败: {e}")
+
+
+# ─── TTS 模型目录 ─────────────────────────────────────────────────────────
+
+TTS_MODEL_DIR = AILA_MODEL_DIR / "tts"
+
+
+def find_aila_tts_models() -> List[str]:
+    """扫描 models/aila/tts/ 目录，返回可用的 TTS 模型名称列表。"""
+    models = []
+    if not TTS_MODEL_DIR.is_dir():
+        return models
+    for sub in sorted(TTS_MODEL_DIR.iterdir()):
+        if not sub.is_dir():
+            continue
+        if (sub / "config.json").exists():
+            models.append(sub.name)
+    return models
+
+
+# ─── 节点：AilaTTSLoader ───────────────────────────────────────────────────
+
+class AilaTTSLoader(io.ComfyNode):
+    """加载 Aila TTS 语音合成模型。"""
+
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        models = find_aila_tts_models()
+        if not models:
+            models = ["<未找到 TTS 模型，请将模型放入 models/aila/tts/>"]
+
+        return io.Schema(
+            node_id="AilaTTSLoader",
+            display_name="Aila TTS Loader (XPU)",
+            category="Aila",
+            inputs=[
+                io.Combo.Input(
+                    "model_name",
+                    options=models,
+                    tooltip="选择 TTS 模型（目录中有 config.json）",
+                ),
+                io.Int.Input(
+                    "max_seq_len",
+                    default=4096,
+                    min=512,
+                    max=32768,
+                    tooltip="最大序列长度",
+                    optional=True,
+                ),
+            ],
+            outputs=[
+                io.Custom("AILA_TTS_MODEL").Output(display_name="TTS_MODEL"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, model_name: str, max_seq_len: int = 4096) -> io.NodeOutput:
+        try:
+            model_path = TTS_MODEL_DIR / model_name
+            if not model_path.is_dir():
+                raise FileNotFoundError(
+                    f"找不到 TTS 模型目录: {model_name}。"
+                    f" 请将模型放入 {TTS_MODEL_DIR}"
+                )
+
+            dll_path = get_dll_path()
+            if dll_path is None:
+                raise FileNotFoundError(
+                    "找不到 AilaShared.dll。"
+                    " 请确保已下载 Aila 发行版并配置 config.json"
+                )
+
+            engine = _get_or_create_engine(dll_path, str(model_path), max_seq_len)
+
+            return io.NodeOutput({
+                "model_name": model_name,
+                "model_path": str(model_path),
+                "dll_path": str(dll_path),
+                "max_seq_len": max_seq_len,
+            })
+
+        except Exception as e:
+            raise RuntimeError(f"AilaTTSLoader 失败: {e}")
+
+
+# ─── 节点：AilaSynthesizer ─────────────────────────────────────────────────
+
+TTS_SAMPLE_RATE = 24000  # Qwen3-TTS 输出采样率
+
+
+class AilaSynthesizer(io.ComfyNode):
+    """基于 Aila TTS 模型的文字转语音。"""
+
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="AilaSynthesizer",
+            display_name="Aila TTS Synthesizer (XPU)",
+            category="Aila",
+            inputs=[
+                io.Custom("AILA_TTS_MODEL").Input(
+                    "aila_model",
+                    tooltip="来自 Aila TTS Loader 的模型",
+                ),
+                io.String.Input(
+                    "text",
+                    multiline=True,
+                    default="",
+                    tooltip="要合成语音的文本内容",
+                ),
+                io.Int.Input(
+                    "max_new_tokens",
+                    default=-1,
+                    min=-1,
+                    max=8192,
+                    tooltip="最大生成 token 数，控制音频长度。设 -1 则设 8192（约19分钟，基本不限）；一段10秒语音约需256 tokens。配合 auto_segment 使用效果更好",
+                    optional=True,
+                ),
+                io.Int.Input(
+                    "seed",
+                    default=0,
+                    min=0,
+                    max=2147483647,
+                    control_after_generate=True,
+                    tooltip="随机种子（0=随机）",
+                    optional=True,
+                ),
+                io.Combo.Input(
+                    "memory_cleanup",
+                    options=[
+                        "persistent (不释放)",
+                        "full_cleanup (释放显存, 清理缓存)",
+                    ],
+                    default="persistent (不释放)",
+                    tooltip="合成完成后显存清理方式",
+                    optional=True,
+                ),
+                io.Boolean.Input(
+                    "auto_segment",
+                    default=False,
+                    tooltip="启用后按句号分句分段合成长文本，再拼接为完整音频。推荐长文本时开启",
+                    optional=True,
+                ),
+                io.Boolean.Input(
+                    "debug",
+                    default=False,
+                    tooltip="启用调试日志",
+                    optional=True,
+                ),
+            ],
+            outputs=[
+                io.Audio.Output(display_name="AUDIO"),
+            ],
+        )
+
+    @classmethod
+    def execute(
+        cls,
+        aila_model: Dict[str, Any],
+        text: str = "",
+        max_new_tokens: int = -1,
+        auto_segment: bool = False,
+        seed: int = 0,
+        memory_cleanup: str = "persistent (不释放)",
+        debug: bool = False,
+    ) -> io.NodeOutput:
+        """执行文字转语音。"""
+        try:
+            if not isinstance(aila_model, dict) or "model_path" not in aila_model:
+                raise ValueError("无效的模型数据，请从 Aila TTS Loader 连接")
+
+            if not text.strip():
+                raise ValueError("请输入要合成的文本")
+
+            model_path = aila_model["model_path"]
+            engine_entry = _aila_engines.get(model_path)
+            if engine_entry is None:
+                dll_path = get_dll_path()
+                if dll_path is None:
+                    raise RuntimeError("找不到 AilaShared.dll，请检查配置")
+                _get_or_create_engine(dll_path, model_path)
+                engine_entry = _aila_engines.get(model_path)
+                if engine_entry is None:
+                    raise RuntimeError(f"自动重载模型 '{model_path}' 失败")
+
+            lib = engine_entry["lib"]
+            engine = engine_entry["engine"]
+
+            if debug:
+                os.environ["AILA_DEBUG_TOKEN_IDS"] = "1"
+            elif "AILA_DEBUG_TOKEN_IDS" in os.environ:
+                del os.environ["AILA_DEBUG_TOKEN_IDS"]
+
+            # 最终文本
+            final_text = text.strip()
+            print(f"[Aila Synthesizer] Text: {final_text[:100]} ({len(final_text)} chars)")
+
+            # generate config: max_new_tokens=-1 传 8192 作为不限
+            cfg = lib.aila_default_gen_config()
+            cfg.max_new_tokens = max_new_tokens if max_new_tokens > 0 else 8192
+            cfg_ptr = ctypes.byref(cfg)
+
+            # TTS 合成（支持自动分段）
+            all_samples: List[np.ndarray] = []
+
+            if auto_segment:
+                # 按标点符号拆分为句子
+                for sep in ("。", "！", "？", "\n"):
+                    final_text = final_text.replace(sep, sep + "\n")
+                sentences = [s.strip() for s in final_text.split("\n") if s.strip()]
+
+                # 合并短句为平衡段落（每段目标 ~200 字）
+                segments = []
+                current = ""
+                for s in sentences:
+                    if len(current) + len(s) < 200 or not current:
+                        current += s
+                    else:
+                        segments.append(current)
+                        current = s
+                if current:
+                    segments.append(current)
+
+                print(f"[Aila Synthesizer] Auto-segment: {len(segments)} segment(s) from {len(sentences)} sentence(s)")
+            else:
+                segments = [final_text]
+
+            for idx, seg_text in enumerate(segments):
+                if auto_segment:
+                    print(f"[Aila Synthesizer] Segment {idx+1}/{len(segments)}: {seg_text[:60]}")
+
+                out_samples_ptr = ctypes.POINTER(ctypes.c_float)()
+                out_sample_count = ctypes.c_int()
+
+                ret = lib.aila_synthesize_text_to_wav(
+                    engine,
+                    seg_text.encode("utf-8"),
+                    None,  # speaker_embedding
+                    0,     # speaker_embedding_len
+                    cfg_ptr,
+                    ctypes.byref(out_samples_ptr),
+                    ctypes.byref(out_sample_count),
+                )
+
+                if ret != 0:
+                    err = _get_aila_error(lib, engine)
+                    raise RuntimeError(f"Aila TTS 合成失败 (code={ret}): {err}")
+
+                seg_samples = np.ctypeslib.as_array(
+                    out_samples_ptr, shape=(out_sample_count.value,)
+                ).copy()
+                lib.aila_free_samples(out_samples_ptr)
+                all_samples.append(seg_samples)
+
+            # 拼接所有段
+            if len(all_samples) == 1:
+                full_array = all_samples[0]
+            else:
+                full_array = np.concatenate(all_samples)
+
+            sample_count = len(full_array)
+            print(f"[Aila Synthesizer] Synthesized: {sample_count} samples, "
+                  f"{len(segments)} segment(s)")
+
+            # 转为 torch tensor → AUDIO 格式
+            audio_tensor = torch.from_numpy(full_array).to(torch.float32)
+            audio_tensor = audio_tensor.unsqueeze(0).unsqueeze(0)  # (1, 1, N)
+
+            # 显存清理
+            cleanup_key = memory_cleanup.split(" (")[0] if " (" in memory_cleanup else memory_cleanup
+            if cleanup_key == "full_cleanup":
+                print(f"[Aila Synthesizer] 彻底清理: {model_path} + XPU 缓存")
+                _shutdown_engine(model_path)
+                try:
+                    if hasattr(torch, "xpu") and torch.xpu.is_available():
+                        torch.xpu.empty_cache()
+                        torch.xpu.synchronize()
+                except Exception:
+                    pass
+
+            return io.NodeOutput({
+                "waveform": audio_tensor,
+                "sample_rate": TTS_SAMPLE_RATE,
+            })
+
+        except Exception as e:
+            raise RuntimeError(f"AilaSynthesizer 失败: {e}")

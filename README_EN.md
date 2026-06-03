@@ -1,43 +1,64 @@
 # ComfyUI-Aila-XPU
 
-> ComfyUI captioning plugin powered by Aila inference engine, optimized for Intel Arc GPUs.
+> A ComfyUI plugin powered by the Aila inference engine, enabling efficient LLM captioning, ASR speech-to-text, and TTS text-to-speech on Intel Arc GPUs.
+>
+> [**中文文档**](./README.md)
 
-[**中文文档**](./README.md)
+## About [Aila Engine](https://github.com/Blackwood416/Aila)
 
-## About [Aila](https://github.com/Blackwood416/Aila)
+Aila is an Intel Arc inference engine developed by [Blackwood416](https://github.com/Blackwood416), optimized for Intel GPUs (A770, B580, etc.).
+Leveraging Intel oneDNN, SYCL and Level Zero, it delivers superior inference performance on Arc GPUs compared to general-purpose solutions like llama.cpp.
 
-Aila is an Intel Arc inference engine developed by [Blackwood416](https://github.com/Blackwood416), optimized for Intel GPUs including A770 and B580. It leverages Intel oneDNN, SYCL, and Level Zero technologies to deliver superior inference performance on Arc GPUs.
-
-Special thanks to Blackwood416 for the rapid responses during plugin development!
+Special thanks to Blackwood416 for the quick responses during plugin development!
 
 ## Overview
 
-This plugin uses the Aila C API to run **Qwen3.5 multimodal models** on **Intel Arc GPUs** for image captioning. It supports three output modes: SD prompts, Chinese descriptions, and Danbooru tags.
+This plugin uses the [Aila](https://github.com/Blackwood416/Aila) inference engine to run **Qwen models** on **Intel Arc GPUs (B580 included)**, providing three features:
 
-## Performance
+- **LLM Captioner** — Image captioning (SD prompts, Chinese descriptions, Danbooru tags), also supports pure text Q&A
+- **ASR Transcriber** — Speech-to-text, supports short audio and long audio with segmentation
+- **TTS Synthesizer** — Text-to-speech, supports auto-segmentation for long text
 
-| Model | VRAM Usage | Prefill Speed | Decode Speed |
+## Benchmarks
+
+### LLM Captioner
+
+| Model | VRAM | Prefill Speed | Decode Speed |
 |:----|:--------:|:----------:|:--------:|
 | Qwen3.5-4B NF4 | ~4.5 GB | ~1050 tok/s | ~57 tok/s |
 | Qwen3.5-0.8B NF4 | ~1.8 GB | ~3870 tok/s | ~144 tok/s |
 
-*Benchmarked on Intel Arc B580 12GB*
+### ASR Transcriber (77s audio, Aila v0.1.4)
+
+| Model | VRAM | Latency | Speed |
+|:----|:--------:|:----:|:----:|
+| Qwen3-ASR-1.7B BF16 | ~7.3 GB | 19.7s | 3.9x |
+| Qwen3-ASR-1.7B BNB NF4 | **~3.4 GB** | **11.4s** | **6.8x** |
+
+### TTS Synthesizer
+
+| Model | VRAM |
+|:----|:--------:|
+| Qwen3-TTS-12Hz-0.6B-Base | ~2.2 GB |
+| Qwen3-TTS-12Hz-1.7B-Base | ~6.7 GB |
+
+*All data measured on Intel Arc B580 12GB*
 
 ## Installation
 
 ### Method 1: ComfyUI Manager (Recommended)
 
-Open ComfyUI Manager → Install Custom Nodes → Install via Git URL, enter:
+Open ComfyUI Manager → Custom Nodes → Install via Git URL, enter:
 
 ```
 https://github.com/allanmeng/ComfyUI-Aila-XPU
 ```
 
-After installation, download the runtime DLLs (first-time setup):
-1. Go to [Release page](https://github.com/allanmeng/ComfyUI-Aila-XPU/releases) and download `aila_runtime_dlls.zip`
+After installation, you also need to download runtime DLLs (first-time setup):
+1. Go to the [Release page](https://github.com/allanmeng/ComfyUI-Aila-XPU/releases) and download `aila_runtime_dlls.zip`
 2. Extract to `ComfyUI/custom_nodes/ComfyUI-Aila-XPU/aila_runtime/` (same directory as `AilaShared.dll`)
 
-### Method 2: Git Clone
+### Method 2: Source Install
 
 ```bash
 cd ComfyUI/custom_nodes
@@ -46,97 +67,169 @@ cd ComfyUI-Aila-XPU
 pip install -r requirements.txt
 ```
 
-Then download runtime DLLs as described above.
+After installation, download runtime DLLs as described above.
 
-### Method 3: Direct Download
+### Method 3: Cloud Download
 
-[https://pan.quark.cn/s/c793f4fbb990](https://pan.quark.cn/s/c793f4fbb990) (Cloud drive, Chinese)
-
-- `ComfyUI-Aila-XPU-插件本体.zip` — Plugin package with runtime DLLs included
-  Extract `ComfyUI-Aila-XPU` folder to `\ComfyUI\custom_nodes\`
-
-- `aila_models.zip` — Pre-exported models
-  Extract the `aila` folder to `\ComfyUI\models\`
-  Includes `qwen3.5-4b-bnb-nf4-offline` and `qwen3.5-0.8b-bnb-nf4-offline`
-
-- `demo_Aila.json` — Test workflow
-  Place in `\ComfyUI\user\default\workflows\`
+[https://pan.quark.cn/s/c793f4fbb990](https://pan.quark.cn/s/c793f4fbb990)
 
 ### Intel Arc Users
 
-This plugin depends on `bitsandbytes`. ComfyUI auto-installs dependencies on startup, but the default installation is the CUDA version. Intel Arc users need to manually reinstall the XPU version:
+The plugin depends on `bitsandbytes`. On ComfyUI startup, the plugin automatically detects:
+- If NVIDIA CUDA version is installed, it will be automatically replaced with the XPU version
+- Intel Arc users **do not need to do anything manually**
 
-```bash
-pip install --force-reinstall bitsandbytes --extra-index-url https://pytorch.org/whl/xpu
-```
+## Models
 
-## Getting Models
+### Supported Models
 
-Place model files in `ComfyUI/models/aila/`.
+| Model | Format | Use Case | Recommended | Location |
+|:----|:----|:----|:----:|:---------|
+| Qwen3.5-4B | [NF4](https://huggingface.co/Blackwood416/Qwen3.5-4B-BNB-NF4-with-vision), [BF16](https://huggingface.co/Qwen/Qwen3.5-4B) | VLM captioning / LLM chat | **Recommended LLM (NF4)** | `models/aila/` |
+| Qwen3.5-0.8B | [NF4](https://huggingface.co/Blackwood416/Qwen3.5-0.8B-BNB-NF4-with-vision), [BF16](https://huggingface.co/Qwen/Qwen3.5-0.8B) | VLM captioning / LLM chat | Lightweight | `models/aila/` |
+| huihui-Qwen3.5-4B-abliterated | [NF4](https://huggingface.co/huihui-ai/Qwen3.5-4B-abliterated), [BF16](https://huggingface.co/huihui-ai/Qwen3.5-4B-abliterated) | VLM captioning / LLM chat | Abliterated | `models/aila/` |
+| Qwen3-4B | [NF4](https://huggingface.co/Blackwood416/Qwen3-4B-BNB-NF4), [BF16](https://huggingface.co/Qwen/Qwen3-4B) | LLM text only | Text-only inference | `models/aila/` |
+| Qwen3-0.6B | [NF4](https://huggingface.co/Blackwood416/Qwen3-0.6B-BNB-NF4), [BF16](https://huggingface.co/Qwen/Qwen3-0.6B) | LLM text only | Lightweight test | `models/aila/` |
+| Qwen3-ASR-1.7B | [NF4](https://huggingface.co/Blackwood416/Qwen3-ASR-1.7B-BNB-NF4), [BF16](https://huggingface.co/Qwen/Qwen3-ASR-1.7B) | ASR speech-to-text | **Recommended ASR (NF4)** | `models/aila/asr/` |
+| Qwen3-ASR-0.6B | [NF4](https://huggingface.co/Blackwood416/Qwen3-ASR-0.6B-BNB-NF4), [BF16](https://huggingface.co/Qwen/Qwen3-ASR-0.6B) | ASR speech-to-text | Lightweight | `models/aila/asr/` |
+| Qwen3-TTS-12Hz-1.7B-Base | [BF16](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-Base) | TTS text-to-speech | Better quality | `models/aila/tts/` |
+| Qwen3-TTS-12Hz-0.6B-Base | [BF16](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-Base) | TTS text-to-speech | Lightweight | `models/aila/tts/` |
+
+### Download Models
 
 **Recommended: Download pre-exported NF4 models (ready to use):**
 
-[https://huggingface.co/collections/Blackwood416/ailas-model-collections](https://huggingface.co/collections/Blackwood416/ailas-model-collections)
+- [Blackwood416's HF Collection](https://huggingface.co/collections/Blackwood416/ailas-model-collections) — LLM + ASR NF4 models
+- [Quark Cloud Drive](https://pan.quark.cn/s/5d795bb3c417) — Base model pack (some recommended models)
 
-Extract to `ComfyUI/models/aila/` and you're ready to go.
-
-**Or export manually:**
+**Or export yourself:**
 
 ```bash
-python export_model.py --from-hf Qwen/Qwen3.5-4B
+# LLM models
+python export_model.py --from-hf Blackwood416/Qwen3.5-4B-BNB-NF4-with-vision
+python export_model.py --from-hf Blackwood416/Qwen3.5-0.8B-BNB-NF4-with-vision
+
+# ASR models (NF4 format)
+python export_model.py --from-hf Blackwood416/Qwen3-ASR-1.7B-BNB-NF4
+python export_model.py --from-hf Blackwood416/Qwen3-ASR-0.6B-BNB-NF4
+
+# TTS models (BF16 format)
+python export_model.py --from-hf Qwen/Qwen3-TTS-12Hz-1.7B-Base
+python export_model.py --from-hf Qwen/Qwen3-TTS-12Hz-0.6B-Base
 ```
 
-**Supported Models:**
+### Model Storage Location
 
-| Model | Architecture | Vision | Size | Use Case |
-|:----|:----:|:----:|:----:|:---------|
-| Qwen3.5-4B | Hybrid | ✅ Yes | ~3.6 GB | **Recommended**, quality & speed |
-| Qwen3.5-0.8B | Hybrid | ✅ Yes | ~942 MB | Lightweight |
-| huihui-Qwen3.5-4B-abliterated | Hybrid | ✅ Yes | ~3.6 GB | Abliterated version |
-| Qwen3-4B | Dense | ❌ No | ~2.4 GB | Text-only |
-| Qwen3-0.6B | Dense | ❌ No | ~525 MB | Text-only testing |
+After downloading, place models in the corresponding directories:
+
+| Purpose | Directory |
+|:----|:-----|
+| VLM captioning / LLM chat | `ComfyUI/models/aila/` or `ComfyUI/models/aila/llm/` |
+| ASR speech-to-text | `ComfyUI/models/aila/asr/` |
+| TTS text-to-speech | `ComfyUI/models/aila/tts/` |
 
 ## Usage
 
-1. **Add `Aila Model Loader (XPU)` node**
-   - Select your downloaded model
-   - Execute to load
+The plugin includes 6 nodes, organized into three groups:
 
-2. **Add `Aila Engine (XPU)` node**
-   - Connect the Model Loader output to the Engine's `aila_model` input
-   - Connect your image to `images` input (optional; leave empty for text-only mode)
-   - Configure parameters and execute
+### VLM Captioning / LLM Chat
 
-### Node Parameters
+| Node | Function |
+|:----|:-----|
+| `Aila LLM Loader (XPU)` | Load LLM/VLM model |
+| `Aila LLM Captioner (XPU)` | Image captioning (with image) or text Q&A (without image) |
+
+**Image captioning workflow:**
+1. Add `Aila LLM Loader (XPU)` → Select model → Execute
+2. Add `Aila LLM Captioner (XPU)` → Connect Loader's `MODEL` output
+3. Connect image to `images` input
+4. Configure `mode` (prompt/caption/danbooru), `user_prompt`, `system_prompt`, etc.
+5. Execute → Output `TEXT`
+
+**Text-only Q&A workflow:**
+1. Add `Aila LLM Loader (XPU)` → Select a text-only model
+2. Add `Aila LLM Captioner (XPU)` → Don't connect image input
+3. Write question in `user_prompt`, role in `system_prompt`
+4. Execute → Output `TEXT`
+
+#### LLM Captioner Parameters
 
 | Parameter | Description |
 |:----|:-----|
-| `mode` | Output mode: `prompt (SD prompt)` / `caption (description)` / `danbooru (tags)` |
-| `user_prompt` | Custom user instruction |
-| `system_prompt` | Custom system prompt |
-| `max_tokens` | Max tokens to generate (default 256) |
+| `mode` | Output mode: `prompt (SD prompt)`、`caption (description)`、`danbooru (Danbooru tags)` |
+| `user_prompt` | Custom user instruction; leave empty for default |
+| `system_prompt` | Custom system prompt; auto-selected based on mode if empty |
+| `max_tokens` | Max generation tokens (default 256) |
 | `temperature` | Sampling temperature (default 0.7) |
 | `top_p` / `top_k` | Sampling parameters |
 | `do_sample` | Enable sampling (disable for greedy decoding) |
 | `seed` | Random seed (0=random) |
-| `memory_cleanup` | `persistent` keeps engine loaded / `full_cleanup` frees GPU memory after generation |
+| `memory_cleanup` | GPU memory handling after generation |
 
-### Output Modes
+**Three modes:**
 
 | Mode | Language | Style | Use Case |
-|:----:|:--------:|:------|:---------|
+|:----:|:--------:|:---------|:---------|
 | **prompt** | English | Full SD prompt | Copy directly to positive prompt |
-| **caption** | Chinese | Detailed natural language description | Image description |
-| **danbooru** | English | Comma-separated Danbooru-style tags | Image tagging |
+| **caption** | Chinese | Detailed natural description | Image description, content logging |
+| **danbooru** | English | Comma-separated Danbooru tags | Image tagging |
+
+### ASR Speech-to-Text
+
+| Node | Function |
+|:----|:-----|
+| `Aila ASR Loader (XPU)` | Load ASR model |
+| `Aila ASR Transcriber (XPU)` | Speech-to-text |
+
+**Workflow:**
+1. Add `Aila ASR Loader (XPU)` → Select ASR model → Execute
+2. Add `Aila ASR Transcriber (XPU)` → Connect Loader's `ASR_MODEL` output
+3. Connect audio (WAV/MP3/etc.) to `audio` input
+4. Execute → Output `TEXT`
+
+#### ASR Transcriber Parameters
+
+| Parameter | Default | Description |
+|:----|:----:|:------|
+| `forced_lang` | auto | Force audio language for better accuracy |
+| `asr_system` | empty | Context hint (e.g. "This is a tech lecture") |
+| `asr_segment` | -1 | Segment duration (seconds). -1/0=no segment, >0=segment. Long audio: 30~60s recommended |
+| `max_tokens` | 1024 | Max transcription length |
+| `seed` | 0 | Random seed |
+| `memory_cleanup` | persistent | GPU memory handling |
+
+### TTS Text-to-Speech
+
+| Node | Function |
+|:----|:-----|
+| `Aila TTS Loader (XPU)` | Load TTS model |
+| `Aila TTS Synthesizer (XPU)` | Text-to-speech |
+
+**Workflow:**
+1. Add `Aila TTS Loader (XPU)` → Select TTS model → Execute
+2. Add `Aila TTS Synthesizer (XPU)` → Connect Loader's `TTS_MODEL` output
+3. Enter text in the `text` input
+4. Execute → Output `AUDIO`
+
+#### TTS Synthesizer Parameters
+
+| Parameter | Default | Description |
+|:----|:----:|:------|
+| `text` | Required | Text to synthesize |
+| `max_new_tokens` | -1 | Max tokens per segment. -1=8192 (~19 min, effectively unlimited) |
+| `auto_segment` | False | Split text by sentence and concatenate audio. Recommended for long text |
+| `seed` | 0 | Random seed |
+| `memory_cleanup` | persistent | GPU memory handling |
+| `debug` | False | Debug logging |
 
 ## Technical Notes
 
-- Uses **ctypes** to call the Aila C API, encoding images as vision tokens for the model
-- Image pipeline: GPU tensor → temporary PNG file → Aila API | Auto-cleaned after generation
-- Supports single and batch image processing
+- This plugin calls the Aila C API via **ctypes**, encoding images into vision tokens for caption generation
+- Image processing: GPU tensor → temporary PNG → Aila API reads | Auto-cleaned after generation
+- Supports single / batch image processing
 
 ## Credits
 
 - [Aila](https://github.com/Blackwood416/Aila) — Intel Arc inference engine
-- [Qwen](https://github.com/QwenLM/Qwen) — Alibaba Qwen models
+- [Qwen](https://github.com/QwenLM/Qwen) — Alibaba Qwen model series
 - Intel — XPU PyTorch + oneDNN acceleration

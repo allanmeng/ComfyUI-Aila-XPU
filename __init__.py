@@ -8,7 +8,7 @@ import os
 
 from comfy_api.latest import ComfyExtension, io
 
-from .nodes import AilaModelLoader, AilaCaptioner
+from .nodes import AilaModelLoader, AilaCaptioner, AilaASRLoader, AilaTranscriber, AilaTTSLoader, AilaSynthesizer
 
 
 def _ensure_bnb_compat():
@@ -64,6 +64,10 @@ class AilaXpuExtension(ComfyExtension):
         return [
             AilaModelLoader,
             AilaCaptioner,
+            AilaASRLoader,
+            AilaTranscriber,
+            AilaTTSLoader,
+            AilaSynthesizer,
         ]
 
 
