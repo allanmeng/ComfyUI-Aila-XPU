@@ -1,0 +1,779 @@
+{
+  "id": "99e816c0-f9ce-4559-9aec-03f03afc8801",
+  "revision": 0,
+  "last_node_id": 34,
+  "last_link_id": 36,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "AilaModelLoader",
+      "pos": [
+        284.71594189214704,
+        -19.402284860933356
+      ],
+      "size": [
+        358.06058924651336,
+        106.95867768595042
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 4,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "AILA_MODEL",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "allanmeng/ComfyUI-Aila-XPU",
+        "ver": "3b2d904d6e4f9c9a33cee9c460b764fa22264c07",
+        "Node name for S&R": "AilaModelLoader"
+      },
+      "widgets_values": [
+        "qwen3.5-4b-bnb-nf4-offline",
+        4096
+      ]
+    },
+    {
+      "id": 2,
+      "type": "AilaCaptioner",
+      "pos": [
+        678.0120081419342,
+        -16.559804194082773
+      ],
+      "size": [
+        400,
+        498
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "aila_model",
+          "type": "AILA_MODEL",
+          "link": 1
+        },
+        {
+          "name": "images",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 8
+        }
+      ],
+      "outputs": [
+        {
+          "name": "TEXT",
+          "type": "STRING",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "allanmeng/ComfyUI-Aila-XPU",
+        "ver": "3b2d904d6e4f9c9a33cee9c460b764fa22264c07",
+        "Node name for S&R": "AilaCaptioner"
+      },
+      "widgets_values": [
+        "caption (图片描述)",
+        "用中文详细描述这张图片的内容",
+        "你是一个专业的图片分析专家",
+        2048,
+        0.1,
+        0.9,
+        20,
+        true,
+        231994850,
+        "randomize",
+        "full_cleanup (释放显存, 清理缓存)",
+        1,
+        0,
+        0,
+        true,
+        false
+      ]
+    },
+    {
+      "id": 4,
+      "type": "ShowText|pysssss",
+      "pos": [
+        1140.991620034462,
+        -14.701219759854354
+      ],
+      "size": [
+        409.0840757360536,
+        396.2277181527631
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "shape": 6,
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-custom-scripts",
+        "ver": "609f3afaa74b2f88ef9ce8d939626065e3247469",
+        "Node name for S&R": "ShowText|pysssss"
+      },
+      "widgets_values": [
+        "<think>\n好的，我现在要分析这张图片。首先，用户要求用中文详细描述图片内容。我需要先仔细观察图片的各个部分。\n\n首先看整体场景：这应该是一个花店门口，因为背景有“绿蔓草—花店”的招牌，周围有很多花卉和绿植。顶部有大字标题“五一劳动节快乐！” 致敬劳动者，说明这是劳动节主题的宣传图。\n\n然后看中央角色：一个穿着企鹅服装的卡通人物，可能是吉祥物或店员，戴着围裙（写着“绿蔓草”），手里拿着鲜花和小黑板。小黑板上有文字：“感谢每一份热爱生活的努力”，旁边还有店主的小牌子。\n\n周围环境细节：左侧有黑板，上面写着“每一束花都是生活的小确幸”，右侧有“营业中 WELCOME”标志，地面有花盆、向日葵等装饰物。右下角还有一个小木牌写“爱生活 爱劳动 爱自己”。\n\n色彩方面：暖色调为主，绿色植物搭配粉色花朵，营造温馨氛围。字体设计活泼，适合节日宣传。\n\n需要确认是否有遗漏元素：比如顶部的红色大字、中间的角色动作、周围的装饰品、以及各个标牌上的文字信息都要准确描述。还要注意文化元素的融入，比如劳动节祝福和劳动者的尊重。\n\n现在整理这些观察点，确保每个部分都详细且连贯地表达出来，同时注意语言流畅自然，符合中文阅读习惯。\n</think>\n\n这是一张以**五一劳动节**为主题的节日庆祝海报，画面充满温馨治愈的氛围与对劳动者的敬意。以下是详细内容拆解：  \n\n### **核心视觉主体**  \n- **中央角色**：一个Q版风格的卡通人物（类似拟人化企鹅形象），头戴黑色圆帽（带黄色鸟喙装饰），身穿印有“绿蔓草”字样的绿色围裙（胸前缀有小叶纹样）。它双手分别持握两样物品——左手捧一束粉白玫瑰花（包装纸为牛皮色并系丝带），右手举着一块迷你黑板；头顶立着白色“店主”铭牌，脚底是淡黄色企鹅爪印造型。角色表情开朗俏皮，眼神明亮灵动。  \n\n\n### **场景与环境布置**  \n- **店铺背景**：  \n  - 上方悬挂深绿色木质招牌，书写金色繁体字“绿蔓草 — 花店 —”，两侧饰有藤蔓花纹；招牌下方隐约可见暖光灯泡与玻璃门轮廓。  \n  - 左右两侧及前景环绕茂密绿植与各色花卉（玫瑰、雏菊、向日葵等），形成花海般的生机感；左下角摆放木框手绘黑板（绘有花朵图案+文字：“花开有期 / 劳动最美”），右下角堆叠木箱内插满紫色小花束（配陶土盆）与水壶道具。  \n- **节日标语**：画面上方以红色毛笔字体醒目呈现“五十一劳动节快乐！”，下方配星形装饰与小字“致敬每一位辛勤的劳动者！”强化节日主题。  \n\n\n### **互动式细节元素**  \n- **手持黑板文案**：角色右手的微型黑板上写有竖排文字“生活需要花 / 花时间 / 爱自己”，呼应劳动节中“珍惜时光、自我关怀”的理念；左手中的花束包装纸上则标注“感谢每一份 / 热爱生活的 / 努力❤️”，传递感恩与肯定劳动价值的态度。  \n- **辅助标识**：右侧墙面挂有木质挂牌标有“营业中 WELCOME”，左侧立板刻录“每一束花都是生活的小确幸”，结合花瓣、爱心等涂鸦符号，构建温暖的生活美学语境。  \n\n\n### **风格与情感基调**  \n整体采用**暖色调插画风格**（浅棕底色+鲜亮花卉色彩），通过圆润线条、柔和光影营造出轻松欢快的视觉效果；结合劳动节祝福语、花艺元素与劳动赞美词，既展现商业店铺的活力形象，又传递“尊重劳动·热爱生活”的正向价值观。"
+      ]
+    },
+    {
+      "id": 6,
+      "type": "LoadImage",
+      "pos": [
+        292.4830079066372,
+        142.75749106234548
+      ],
+      "size": [
+        345.4820768498191,
+        326
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 4,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            8
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.20.1",
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "劳动者咕嘎的五一祝福7.png",
+        "image"
+      ]
+    },
+    {
+      "id": 17,
+      "type": "AilaASRLoader",
+      "pos": [
+        291.9693489961599,
+        688.5195562412069
+      ],
+      "size": [
+        270,
+        82
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 4,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "ASR_MODEL",
+          "type": "AILA_ASR_MODEL",
+          "links": [
+            28
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "allanmeng/ComfyUI-Aila-XPU",
+        "ver": "3b2d904d6e4f9c9a33cee9c460b764fa22264c07",
+        "Node name for S&R": "AilaASRLoader"
+      },
+      "widgets_values": [
+        "Qwen3-ASR-1.7B-BNB-NF4",
+        2048
+      ]
+    },
+    {
+      "id": 19,
+      "type": "LoadAudio",
+      "pos": [
+        292.8512180591037,
+        846.6760061036008
+      ],
+      "size": [
+        269.8405692274307,
+        136
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 4,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            27
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.21.1",
+        "Node name for S&R": "LoadAudio"
+      },
+      "widgets_values": [
+        "long_demo.wav",
+        null,
+        null
+      ]
+    },
+    {
+      "id": 23,
+      "type": "ShowText|pysssss",
+      "pos": [
+        1050.9591983847238,
+        684.995998537388
+      ],
+      "size": [
+        436.4188000387396,
+        412.77690994641
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 26
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "shape": 6,
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-custom-scripts",
+        "ver": "609f3afaa74b2f88ef9ce8d939626065e3247469",
+        "Node name for S&R": "ShowText|pysssss"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 24,
+      "type": "AilaTTSLoader",
+      "pos": [
+        327.60440681569,
+        1307.355525016355
+      ],
+      "size": [
+        419.7621142174586,
+        84.00347556466
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 4,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "TTS_MODEL",
+          "type": "AILA_TTS_MODEL",
+          "links": [
+            30
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "allanmeng/ComfyUI-Aila-XPU",
+        "ver": "3b2d904d6e4f9c9a33cee9c460b764fa22264c07",
+        "Node name for S&R": "AilaTTSLoader"
+      },
+      "widgets_values": [
+        "Qwen3-TTS-12Hz-1.7B-Base",
+        4096
+      ]
+    },
+    {
+      "id": 26,
+      "type": "SaveAudio",
+      "pos": [
+        1287.609443706419,
+        1315.8203505154197
+      ],
+      "size": [
+        270,
+        112
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 31
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.22.2",
+        "Node name for S&R": "SaveAudio"
+      },
+      "widgets_values": [
+        "audio/ComfyUI"
+      ]
+    },
+    {
+      "id": 27,
+      "type": "CR Prompt Text",
+      "pos": [
+        304.5164592762087,
+        1475.1533742328293
+      ],
+      "size": [
+        439.06836964688205,
+        307.6884853669701
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 4,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "links": [
+            33
+          ]
+        },
+        {
+          "name": "show_help",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Comfyroll_CustomNodes",
+        "ver": "d78b780ae43fcf8c6b7c6505e6ffb4584281ceca",
+        "Node name for S&R": "CR Prompt Text"
+      },
+      "widgets_values": [
+        "2026年3月10日，中共中央政治局委员、外交部长王毅应约同卡塔尔首相兼外交大臣穆罕默德通电话。\n\n穆罕默德通报了地区局势和卡方立场，强调卡方不得不进行必要自卫，同时加大外交努力，遏制危机蔓延升级。卡方赞赏中方秉持公正立场并开展斡旋，希望中方为停火止战发挥更大作用。\n\n王毅表示，中国作为联合国安理会常任理事国，在国际事务中历来坚持原则，主持公道。美国和以色列未经安理会授权对伊朗动武，明显违背《联合国宪章》宗旨原则和国际关系基本准则。同时，我们也不认同扩大打击范围，谴责无差别攻击平民和非军事目标。海湾阿拉伯国家的主权、安全和领土完整应得到尊重。战争持续下去有百害而无一利，只会使各方遭受更大损失。中方呼吁立即停火止战，寻求政治解决，支持海湾国家把地区的前途命运掌握在自己手中。中方将继续以自己的方式为缓和局势、恢复和平发挥建设性作用。"
+      ]
+    },
+    {
+      "id": 29,
+      "type": "AilaTranscriber",
+      "pos": [
+        609.3844667358134,
+        702.3538978395145
+      ],
+      "size": [
+        400,
+        276
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "aila_model",
+          "type": "AILA_ASR_MODEL",
+          "link": 28
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 27
+        }
+      ],
+      "outputs": [
+        {
+          "name": "TEXT",
+          "type": "STRING",
+          "links": [
+            26
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "allanmeng/ComfyUI-Aila-XPU",
+        "ver": "3b2d904d6e4f9c9a33cee9c460b764fa22264c07",
+        "Node name for S&R": "AilaTranscriber"
+      },
+      "widgets_values": [
+        "Chinese",
+        "",
+        60,
+        2048,
+        1678498302,
+        "randomize",
+        "persistent (不释放)",
+        false
+      ]
+    },
+    {
+      "id": 30,
+      "type": "AilaSynthesizer",
+      "pos": [
+        785.4474012066939,
+        1311.355378280324
+      ],
+      "size": [
+        400,
+        232
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "aila_model",
+          "type": "AILA_TTS_MODEL",
+          "link": 30
+        },
+        {
+          "name": "text",
+          "type": "STRING",
+          "widget": {
+            "name": "text"
+          },
+          "link": 33
+        }
+      ],
+      "outputs": [
+        {
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            31
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "allanmeng/ComfyUI-Aila-XPU",
+        "ver": "3b2d904d6e4f9c9a33cee9c460b764fa22264c07",
+        "Node name for S&R": "AilaSynthesizer"
+      },
+      "widgets_values": [
+        "",
+        -1,
+        1311635820,
+        "randomize",
+        "full_cleanup (释放显存, 清理缓存)",
+        false,
+        true
+      ]
+    },
+    {
+      "id": 31,
+      "type": "AilaModelLoader",
+      "pos": [
+        1678.0986138578292,
+        -16.069138099623387
+      ],
+      "size": [
+        358.06058924651336,
+        106.95867768595042
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 4,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "AILA_MODEL",
+          "links": [
+            35
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "allanmeng/ComfyUI-Aila-XPU",
+        "ver": "3b2d904d6e4f9c9a33cee9c460b764fa22264c07",
+        "Node name for S&R": "AilaModelLoader"
+      },
+      "widgets_values": [
+        "qwen3-0.6b-bnb-nf4-offline",
+        4096
+      ]
+    },
+    {
+      "id": 33,
+      "type": "ShowText|pysssss",
+      "pos": [
+        2534.374292000144,
+        -11.368072998544335
+      ],
+      "size": [
+        409.0840757360536,
+        396.2277181527631
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 34
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "shape": 6,
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-custom-scripts",
+        "ver": "609f3afaa74b2f88ef9ce8d939626065e3247469",
+        "Node name for S&R": "ShowText|pysssss"
+      },
+      "widgets_values": [
+        "<think>\n嗯，用户问的是图片分析的步骤。首先，我需要确定用户的需求是什么。他们可能对图像处理感兴趣，或者是在学习相关技术，比如图像识别、计算机视觉等。用户可能没有明确说明，但可能需要一个清晰的步骤来理解如何进行图片分析。\n\n接下来，我得回忆一下常见的图片分析流程。通常包括数据收集、预处理、特征提取、模型训练、测试和部署。不过，可能用户需要更详细的步骤，或者他们可能对某些步骤不太清楚。比如，数据预处理可能包括如何处理图像，特征提取可能涉及算法，模型训练可能需要选择合适的算法，测试可能需要评估性能，部署可能需要应用。\n\n还要考虑用户可能的背景。如果是学生，可能需要步骤的结构化；如果是专业人士，可能需要更深入的解释。另外，用户可能没有提到的深层需求，比如他们可能在寻找如何进行图像分析的教程，或者他们可能在工作中遇到问题，需要步骤来解决。\n\n需要确保回答准确，步骤清晰，可能还要给出一些例子或注意事项，比如数据预处理中的常见问题，或者模型评估的方法。同时，可能需要提醒用户注意数据质量和模型的可解释性，避免误解。最后，确保回答符合专业性，但保持口语化，让用户容易理解。\n</think>\n\n图片分析的步骤可以分为以下几个关键阶段，以确保从数据收集到最终应用的完整流程：\n\n1. **数据收集**  \n   - 从图像、视频或传感器中获取原始数据。  \n   - 确保数据格式统一（如灰度、彩色、二值化等）并进行预处理。\n\n2. **图像预处理**  \n   - **灰度转换**：将图像转换为灰度格式，便于处理。  \n   - **归一化**：调整亮度和对比度，消除色阶偏差。  \n   - **裁剪与旋转**：对图像进行缩放或旋转，以适应后续分析需求。  \n   - **裁剪与分割**：将图像划分为多个部分，例如用于分类任务的多个子图像。\n\n3. **特征提取**  \n   - 使用算法（如CNN、LSTM等）提取图像中的关键特征（如边缘、纹理、颜色分布）。  \n   - 对特征进行标准化处理，例如归一化到0-1范围。\n\n4. **模型训练**  \n   - 使用预训练的模型（如ResNet、YOLO等）或自定义模型（如使用TensorFlow或PyTorch）进行训练。  \n   - 调整超参数（如学习率、批次大小）以优化模型性能。\n\n5. **模型评估**  \n   - 使用测试集验证模型的准确性，例如通过混淆矩阵、精确率、召回率等指标。  \n   - 评估模型的泛化能力，确保其在不同数据集上表现稳定。\n\n6. **模型部署**  \n   - 将训练好的模型部署到服务器或边缘设备上，用于实际应用（如图像识别、视频分析）。  \n   - 优化模型以适应不同硬件或网络环境。\n\n**注意事项**：  \n- 确保数据质量，避免噪声或异常值。  \n- 使用标注数据时注意数据标注的准确性。  \n- 模型训练后需进行可解释性分析，以确保结果可解释性。  \n\n通过这些步骤，可以系统地完成图片分析任务。"
+      ]
+    },
+    {
+      "id": 34,
+      "type": "AilaCaptioner",
+      "pos": [
+        2071.3946801076163,
+        -13.226657432772754
+      ],
+      "size": [
+        400,
+        498
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "aila_model",
+          "type": "AILA_MODEL",
+          "link": 35
+        },
+        {
+          "name": "images",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "TEXT",
+          "type": "STRING",
+          "links": [
+            34
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "allanmeng/ComfyUI-Aila-XPU",
+        "ver": "3b2d904d6e4f9c9a33cee9c460b764fa22264c07",
+        "Node name for S&R": "AilaCaptioner"
+      },
+      "widgets_values": [
+        "caption (图片描述)",
+        "我想知道图片分析的步骤",
+        "你是一个专业的图片分析专家",
+        1024,
+        0.1,
+        0.9,
+        20,
+        true,
+        1774062589,
+        "randomize",
+        "full_cleanup (释放显存, 清理缓存)",
+        1,
+        0,
+        0,
+        true,
+        false
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "AILA_MODEL"
+    ],
+    [
+      3,
+      2,
+      0,
+      4,
+      0,
+      "STRING"
+    ],
+    [
+      8,
+      6,
+      0,
+      2,
+      1,
+      "IMAGE"
+    ],
+    [
+      26,
+      29,
+      0,
+      23,
+      0,
+      "STRING"
+    ],
+    [
+      27,
+      19,
+      0,
+      29,
+      1,
+      "AUDIO"
+    ],
+    [
+      28,
+      17,
+      0,
+      29,
+      0,
+      "AILA_ASR_MODEL"
+    ],
+    [
+      30,
+      24,
+      0,
+      30,
+      0,
+      "AILA_TTS_MODEL"
+    ],
+    [
+      31,
+      30,
+      0,
+      26,
+      0,
+      "AUDIO"
+    ],
+    [
+      33,
+      27,
+      0,
+      30,
+      1,
+      "STRING"
+    ],
+    [
+      34,
+      34,
+      0,
+      33,
+      0,
+      "STRING"
+    ],
+    [
+      35,
+      31,
+      0,
+      34,
+      0,
+      "AILA_MODEL"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "图片内容描述 VLM",
+      "bounding": [
+        274.71594189214704,
+        -89.40228486093335,
+        1285.3597538783683,
+        592.8264629349976
+      ],
+      "color": "#3f789e",
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "文字内容互动 LLM",
+      "bounding": [
+        1668.0986138578292,
+        -86.06913809962339,
+        1285.3597538783683,
+        592.8264629349976
+      ],
+      "color": "#3f789e",
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "语音转文字 ASR",
+      "bounding": [
+        281.9693489961599,
+        614.995998537388,
+        1215.408649427303,
+        492.7769099464099
+      ],
+      "color": "#3f789e",
+      "flags": {}
+    },
+    {
+      "id": 4,
+      "title": "文字转语音 TTS",
+      "bounding": [
+        294.5164592762087,
+        1237.355525016355,
+        1273.09298443021,
+        555.4863345834444
+      ],
+      "color": "#3f789e",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.620921323059155,
+      "offset": [
+        1068.0947366390744,
+        609.6368676043039
+      ]
+    },
+    "frontendVersion": "1.44.19",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}
