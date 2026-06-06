@@ -93,8 +93,12 @@ pip install -r requirements.txt
 | Qwen3-0.6B | [NF4](https://huggingface.co/Blackwood416/Qwen3-0.6B-BNB-NF4), [BF16](https://huggingface.co/Qwen/Qwen3-0.6B) | LLM 纯文本 | 纯文本测试 | `models/aila/` |
 | Qwen3-ASR-1.7B | [NF4](https://huggingface.co/Blackwood416/Qwen3-ASR-1.7B-BNB-NF4), [BF16](https://huggingface.co/Qwen/Qwen3-ASR-1.7B) | ASR 语音转录 | **推荐 ASR (NF4)** | `models/aila/asr/` |
 | Qwen3-ASR-0.6B | [NF4](https://huggingface.co/Blackwood416/Qwen3-ASR-0.6B-BNB-NF4), [BF16](https://huggingface.co/Qwen/Qwen3-ASR-0.6B) | ASR 语音转录 | 轻量快速 | `models/aila/asr/` |
-| Qwen3-TTS-12Hz-1.7B-Base | [BF16](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-Base) | TTS 语音合成 | 质量更好 | `models/aila/tts/` |
-| Qwen3-TTS-12Hz-0.6B-Base | [BF16](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-Base) | TTS 语音合成 | 轻量快速 | `models/aila/tts/` |
+| Qwen3-ForceAligner-0.6B | [NF4](https://huggingface.co/Blackwood416/Qwen3-ForceAligner-0.6B-BNB-NF4) | ASR 强制对齐 | 字幕对齐 | `models/aila/asr/` |
+| Qwen3-TTS-12Hz-1.7B-Base | [BF16](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-Base) | TTS 语音合成/音色克隆 | 质量更好 | `models/aila/tts/` |
+| Qwen3-TTS-12Hz-0.6B-Base | [BF16](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-Base) | TTS 语音合成/音色克隆 | 轻量快速 | `models/aila/tts/` |
+| Qwen3-TTS-12Hz-1.7B-CustomVoice | [BF16](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice) | TTS 预设音色 | 9种预设音色 | `models/aila/tts/` |
+| Qwen3-TTS-12Hz-0.6B-CustomVoice | [BF16](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice) | TTS 预设音色(CustomVoice) | 轻量+预设音色 | `models/aila/tts/` |
+| Qwen3-TTS-12Hz-1.7B-VoiceDesign | [BF16](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign) | TTS 风格设计(VoiceDesign) | 文字描述生成音色 | `models/aila/tts/` |
 
 ### 下载模型
 

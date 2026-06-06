@@ -92,8 +92,12 @@ The plugin depends on `bitsandbytes`. On ComfyUI startup, the plugin automatical
 | Qwen3-0.6B | [NF4](https://huggingface.co/Blackwood416/Qwen3-0.6B-BNB-NF4), [BF16](https://huggingface.co/Qwen/Qwen3-0.6B) | LLM text only | Lightweight test | `models/aila/` |
 | Qwen3-ASR-1.7B | [NF4](https://huggingface.co/Blackwood416/Qwen3-ASR-1.7B-BNB-NF4), [BF16](https://huggingface.co/Qwen/Qwen3-ASR-1.7B) | ASR speech-to-text | **Recommended ASR (NF4)** | `models/aila/asr/` |
 | Qwen3-ASR-0.6B | [NF4](https://huggingface.co/Blackwood416/Qwen3-ASR-0.6B-BNB-NF4), [BF16](https://huggingface.co/Qwen/Qwen3-ASR-0.6B) | ASR speech-to-text | Lightweight | `models/aila/asr/` |
-| Qwen3-TTS-12Hz-1.7B-Base | [BF16](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-Base) | TTS text-to-speech | Better quality | `models/aila/tts/` |
-| Qwen3-TTS-12Hz-0.6B-Base | [BF16](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-Base) | TTS text-to-speech | Lightweight | `models/aila/tts/` |
+| Qwen3-ForceAligner-0.6B | [NF4](https://huggingface.co/Blackwood416/Qwen3-ForceAligner-0.6B-BNB-NF4) | ASR forced alignment | Subtitle alignment | `models/aila/asr/` |
+| Qwen3-TTS-12Hz-1.7B-Base | [BF16](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-Base) | TTS / voice cloning | Better quality | `models/aila/tts/` |
+| Qwen3-TTS-12Hz-0.6B-Base | [BF16](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-Base) | TTS / voice cloning | Lightweight | `models/aila/tts/` |
+| Qwen3-TTS-12Hz-1.7B-CustomVoice | [BF16](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice) | TTS with preset voices | 9 preset voices | `models/aila/tts/` |
+| Qwen3-TTS-12Hz-0.6B-CustomVoice | [BF16](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice) | TTS with preset voices | Lightweight presets | `models/aila/tts/` |
+| Qwen3-TTS-12Hz-1.7B-VoiceDesign | [BF16](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign) | TTS voice design | Style-based voice gen | `models/aila/tts/` |
 
 ### Download Models
 
