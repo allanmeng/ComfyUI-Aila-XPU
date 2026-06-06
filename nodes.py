@@ -32,6 +32,13 @@ TEMP_DIR = PLUGIN_DIR / "temp"
 TEMP_DIR.mkdir(exist_ok=True)
 _TEMP_COUNTER = 0
 
+
+def _next_temp_id() -> int:
+    """线程安全的临时文件 ID 生成。"""
+    global _TEMP_COUNTER
+    _TEMP_COUNTER += 1
+    return _TEMP_COUNTER
+
 # 默认 DLL 搜索路径
 _DEFAULT_DLL_CANDIDATES = [
     PLUGIN_DIR / "AilaShared.dll",
@@ -133,6 +140,15 @@ class AilaGenConfig(ctypes.Structure):
     ]
 
 
+class AilaAlignedWord(ctypes.Structure):
+    """对应 Aila 的 AilaAlignedWord 结构体（强制对齐结果）。"""
+    _fields_ = [
+        ("text", ctypes.c_char_p),
+        ("start_ms", ctypes.c_int),
+        ("end_ms", ctypes.c_int),
+    ]
+
+
 def _bind_functions(lib: ctypes.CDLL):
     """绑定 AilaShared.dll 中 C API 函数的调用签名。"""
     # 生命周期
@@ -200,6 +216,59 @@ def _bind_functions(lib: ctypes.CDLL):
     # 音频采样释放
     lib.aila_free_samples.argtypes = [ctypes.POINTER(ctypes.c_float)]
     lib.aila_free_samples.restype = None
+
+    # 提取说话人嵌入（语音克隆用）
+    lib.aila_extract_speaker_embedding.argtypes = [
+        ctypes.c_void_p,                   # engine
+        ctypes.c_char_p,                   # audio_path
+        ctypes.POINTER(ctypes.POINTER(ctypes.c_float)),  # out_embedding (输出)
+        ctypes.POINTER(ctypes.c_int),      # out_embedding_dim (输出)
+    ]
+    lib.aila_extract_speaker_embedding.restype = ctypes.c_int
+
+    # 高级 TTS 合成（预设音色/风格/语言，写 WAV 文件）
+    lib.aila_synthesize.argtypes = [
+        ctypes.c_void_p,                   # engine
+        ctypes.c_char_p,                   # text
+        ctypes.c_char_p,                   # reference_audio_path (可 NULL)
+        ctypes.c_char_p,                   # speaker_name (可 NULL)
+        ctypes.c_char_p,                   # instruct_text (可 NULL)
+        ctypes.c_char_p,                   # language (可 NULL)
+        ctypes.POINTER(AilaGenConfig),     # config (可 NULL)
+        ctypes.c_char_p,                   # output_wav_path
+    ]
+    lib.aila_synthesize.restype = ctypes.c_int
+
+    # 强制对齐（ForceAligner）
+    lib.aila_align.argtypes = [
+        ctypes.c_void_p,                   # engine
+        ctypes.POINTER(ctypes.c_float),    # audio_samples
+        ctypes.c_int,                      # num_samples
+        ctypes.c_int,                      # sample_rate
+        ctypes.c_char_p,                   # text
+        ctypes.c_char_p,                   # language (可 NULL)
+        ctypes.POINTER(ctypes.POINTER(AilaAlignedWord)),  # out_words (输出)
+        ctypes.POINTER(ctypes.c_int),      # out_count (输出)
+    ]
+    lib.aila_align.restype = ctypes.c_int
+
+    lib.aila_align_words.argtypes = [
+        ctypes.c_void_p,                   # engine
+        ctypes.POINTER(ctypes.c_float),    # audio_samples
+        ctypes.c_int,                      # num_samples
+        ctypes.c_int,                      # sample_rate
+        ctypes.POINTER(ctypes.c_char_p),   # words 数组
+        ctypes.c_int,                      # num_words
+        ctypes.POINTER(ctypes.POINTER(AilaAlignedWord)),  # out_words (输出)
+        ctypes.POINTER(ctypes.c_int),      # out_count (输出)
+    ]
+    lib.aila_align_words.restype = ctypes.c_int
+
+    lib.aila_free_aligned_words.argtypes = [
+        ctypes.POINTER(AilaAlignedWord),   # words
+        ctypes.c_int,                      # count
+    ]
+    lib.aila_free_aligned_words.restype = None
 
 
 def load_aila_library(dll_path: Path) -> ctypes.CDLL:
@@ -741,6 +810,20 @@ def find_aila_asr_models() -> List[str]:
     return models
 
 
+def _find_force_aligner_models() -> List[str]:
+    """扫描 models/aila/asr/ 目录，返回可用的 ForceAligner 模型列表。"""
+    models = []
+    if not AILA_ASR_MODEL_DIR.is_dir():
+        return ["<未找到 ForceAligner 模型>"]
+    for sub in sorted(AILA_ASR_MODEL_DIR.iterdir()):
+        if not sub.is_dir():
+            continue
+        name = sub.name.lower()
+        if "forcealigner" in name.replace("_", "").replace("-", "") and (sub / "config.json").exists():
+            models.append(sub.name)
+    return models if models else ["<未找到 ForceAligner 模型>"]
+
+
 # ─── 语音转 WAV 辅助 ───────────────────────────────────────────────────────
 
 import soundfile as sf
@@ -916,9 +999,25 @@ class AilaTranscriber(io.ComfyNode):
                     tooltip="开启后控制台显示引擎详细日志和 Token ID 信息，排查问题用",
                     optional=True,
                 ),
+                # ── 强制对齐参数 ──
+                io.Combo.Input(
+                    "force_aligner_model",
+                    options=["None (不加载)"] + [m for m in _find_force_aligner_models() if not m.startswith("<")],
+                    default="None (不加载)",
+                    tooltip="选择 ForceAligner 模型，选中后额外输出带时间戳的 SRT 字幕",
+                    optional=True,
+                ),
+                io.Combo.Input(
+                    "subtitle_mode",
+                    options=["按断句", "按词", "按字"],
+                    default="按断句",
+                    tooltip="字幕拆分方式：按断句（推荐，按句号/长间隔拆分）、按词（jieba 分词）、按字（逐字时间戳）。仅启用了 ForceAligner 模型时有效",
+                    optional=True,
+                ),
             ],
             outputs=[
                 io.String.Output(display_name="TEXT"),
+                io.String.Output(display_name="SUBTITLES"),
             ],
         )
 
@@ -934,6 +1033,8 @@ class AilaTranscriber(io.ComfyNode):
         seed: int = 0,
         memory_cleanup: str = "persistent (不释放)",
         debug: bool = False,
+        force_aligner_model: str = None,
+        subtitle_mode: str = "按断句",
     ) -> io.NodeOutput:
         """执行语音转文字。"""
         tmp_path = None
@@ -1021,6 +1122,206 @@ class AilaTranscriber(io.ComfyNode):
             if lang_ptr.value:
                 lib.aila_free_string(lang_ptr)
 
+            # ── 强制对齐（可选）──────────────────────────────────────────
+            subtitles = ""
+            if force_aligner_model and force_aligner_model not in ("None (不加载)", "<未找到 ForceAligner 模型>"):
+                align_model_path = str(AILA_ASR_MODEL_DIR / force_aligner_model)
+                print(f"[Aila Transcriber] Loading ForceAligner: {force_aligner_model}")
+
+                # 加载 ForceAligner 引擎
+                align_entry = _aila_engines.get(align_model_path)
+                if align_entry is None:
+                    dll_path = get_dll_path()
+                    if dll_path is None:
+                        raise RuntimeError("找不到 AilaShared.dll，请检查配置")
+                    _get_or_create_engine(dll_path, align_model_path)
+                    align_entry = _aila_engines.get(align_model_path)
+                    if align_entry is None:
+                        raise RuntimeError(f"加载 ForceAligner '{force_aligner_model}' 失败")
+
+                align_lib = align_entry["lib"]
+                align_engine = align_entry["engine"]
+
+                # 从临时 WAV 文件读取音频 PCM 数据（重采样到 16kHz）
+                import soundfile as sf
+                audio_data, audio_sr = sf.read(tmp_path, dtype="float32")
+                if audio_data.ndim > 1:
+                    audio_data = audio_data.mean(axis=1)
+                import numpy as np
+                audio_data = audio_data.flatten().astype(np.float32)
+
+                # ForceAligner 需要 16kHz 音频
+                target_sr = 16000
+                if audio_sr != target_sr:
+                    import numpy as np
+                    old_len = len(audio_data)
+                    new_len = int(old_len * target_sr / audio_sr)
+                    audio_data = np.interp(
+                        np.linspace(0, old_len - 1, new_len),
+                        np.arange(old_len),
+                        audio_data
+                    ).astype(np.float32)
+                    audio_sr = target_sr
+
+                # 确保内存连续
+                audio_data = np.ascontiguousarray(audio_data)
+
+                # 转为 PCM float 数组
+                lang = forced_lang.encode("utf-8") if forced_lang and forced_lang != "auto" else "Chinese".encode("utf-8")
+
+                # 长音频分块对齐（每块 ~2 分钟，音频编码+文本合计不超 max_seq=4096）
+                max_chunk_samples = 16000 * 120  # 2分钟 @ 16kHz
+                total_samples = len(audio_data)
+                total_text = text
+                text_len = len(total_text)
+                lang_str = forced_lang if forced_lang and forced_lang != "auto" else "Chinese"
+
+                # 计算分块（直接按音频时长占比切文本）
+                chunk_starts = list(range(0, total_samples, max_chunk_samples))
+                all_subtitle_entries = []  # [(ch, start_ms, end_ms)]
+
+                print(f"[Aila Transcriber] Splitting {total_samples/16000:.0f}s audio into {len(chunk_starts)} chunk(s) for ForceAligner")
+
+                for ck, chunk_start in enumerate(chunk_starts):
+                    chunk_end = min(chunk_start + max_chunk_samples, total_samples)
+                    chunk_audio = audio_data[chunk_start:chunk_end]
+                    chunk_samples = len(chunk_audio)
+
+                    # 按比例切文本
+                    text_start_ratio = chunk_start / total_samples
+                    text_end_ratio = chunk_end / total_samples
+                    chunk_text_start = int(text_len * text_start_ratio)
+                    chunk_text_end = int(text_len * text_end_ratio)
+                    chunk_text = total_text[chunk_text_start:chunk_text_end]
+                    # 微调：往后扩展到最近的完整词边界
+                    while chunk_text_end < text_len and total_text[chunk_text_end - 1] not in "，。！？、；：\n ":
+                        chunk_text_end += 1
+                    chunk_text = total_text[chunk_text_start:chunk_text_end]
+
+                    print(f"[Aila Transcriber]  Chunk {ck+1}/{len(chunk_starts)}: audio [{chunk_start//16000}s-{chunk_end//16000}s], text[{chunk_text_start}:{chunk_text_end}]")
+
+                    # 对齐当前块
+                    chunk_audio_ptr = np.ascontiguousarray(chunk_audio).ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+                    out_words_ptr = ctypes.POINTER(AilaAlignedWord)()
+                    out_count = ctypes.c_int()
+                    ret = align_lib.aila_align(
+                        align_engine,
+                        chunk_audio_ptr,
+                        chunk_samples,
+                        audio_sr,
+                        chunk_text.encode("utf-8", errors="replace"),
+                        lang,
+                        ctypes.byref(out_words_ptr),
+                        ctypes.byref(out_count),
+                    )
+
+                    if ret != 0:
+                        err = _get_aila_error(align_lib, align_engine)
+                        print(f"[Aila Transcriber]  Chunk {ck+1} align failed (code={ret}): {err}")
+                        # 释放已分配的对齐结果
+                        if out_words_ptr and out_count.value > 0:
+                            align_lib.aila_free_aligned_words(out_words_ptr, out_count.value)
+                        continue
+
+                    # 收集当前块的逐字结果，时间偏移量 = chunk_start 对应的毫秒数
+                    time_offset_ms = int(chunk_start / audio_sr * 1000)
+                    for i in range(out_count.value):
+                        w = out_words_ptr[i]
+                        ch = ctypes.string_at(w.text).decode("utf-8", errors="replace") if w.text else ""
+                        st = w.start_ms + time_offset_ms if w.start_ms >= 0 else -1
+                        et = w.end_ms + time_offset_ms if w.end_ms > 0 else 0
+                        all_subtitle_entries.append((ch, st, et))
+
+                    # 释放对齐结果
+                    align_lib.aila_free_aligned_words(out_words_ptr, out_count.value)
+
+                if all_subtitle_entries:
+                    import jieba
+                    char_entries = all_subtitle_entries
+
+                    # 2. 用对齐后的字符序列重建文本，jieba 分词
+                    aligned_text = "".join(ch[0] for ch in char_entries if ch[0])
+                    tokens = list(jieba.tokenize(aligned_text))
+                    # tokens → [(word, char_start, char_end)]
+
+                    # 3. 按词聚合时间
+                    word_groups = []  # [(word_text, start_ms, end_ms)]
+                    for word, c_start, c_end in tokens:
+                        seg_chars = char_entries[c_start:c_end]
+                        times = [(st, et) for _, st, et in seg_chars if st >= 0 and et > 0]
+                        if times:
+                            min_st = min(st for st, _ in times)
+                            max_et = max(et for _, et in times)
+                        else:
+                            min_st = word_groups[-1][1] if word_groups else 0
+                            max_et = word_groups[-1][2] if word_groups else 0
+                        word_groups.append((word, min_st, max_et))
+
+                    # 4. 根据 subtitle_mode 选择粒度
+                    def _to_srt_time(ms):
+                        h = ms // 3600000
+                        m = (ms % 3600000) // 60000
+                        s = (ms % 60000) // 1000
+                        mill = ms % 1000
+                        return f"{h:02d}:{m:02d}:{s:02d},{mill:03d}"
+
+                    if subtitle_mode == "按字":
+                        raw = [(ch, st, et) for ch, st, et in char_entries if ch and st >= 0 and et > 0]
+
+                    elif subtitle_mode == "按词":
+                        raw = [(w, st, et) for w, st, et in word_groups]
+
+                    else:
+                        # 按断句（默认）：用原始文本检测标点，用对齐结果获取时间
+                        raw = []
+                        cur_words, cur_start, cur_end = [], 0, 0
+                        # char_offset = 累计了多少非标点字符
+                        char_offset = 0
+                        for i, (word, st, et) in enumerate(word_groups):
+                            if not cur_words:
+                                cur_start = st
+                            cur_words.append(word)
+                            cur_end = et
+                            char_offset += len(word)
+                            # 在原始文本中找到第 char_offset 个非标点字符的位置
+                            orig_pos = 0
+                            non_punct = 0
+                            while orig_pos < len(text) and non_punct < char_offset:
+                                if text[orig_pos] not in "，。！？、；：\n ":
+                                    non_punct += 1
+                                if non_punct < char_offset:
+                                    orig_pos += 1
+                            # 检查原始文本中该位置之后是否有标点
+                            punct_after = ""
+                            scan = orig_pos + 1
+                            while scan < len(text) and text[scan] in "，。！？、；：\n ":
+                                punct_after += text[scan]
+                                scan += 1
+                            cur_text = "".join(cur_words)
+                            is_end = "。" in punct_after or "！" in punct_after or "？" in punct_after
+                            is_soft = "，" in punct_after and len(cur_text) >= 8
+                            gap = (word_groups[i + 1][1] - et) > 1500 if i + 1 < len(word_groups) else False
+                            if is_end or gap:
+                                raw.append((cur_text, cur_start, cur_end))
+                                cur_words = []
+                            elif is_soft:
+                                raw.append((cur_text, cur_start, cur_end))
+                                cur_words = []
+                            elif len(cur_text) > 20:
+                                raw.append((cur_text, cur_start, cur_end))
+                                cur_words = []
+                        if cur_words:
+                            raw.append(("".join(cur_words), cur_start, cur_end))
+
+                    print(f"[Aila Transcriber] subtitle_mode={subtitle_mode!r}, raw={len(raw)} entries")
+                    lines = []
+                    for idx, (txt, st, et) in enumerate(raw):
+                        lines.append(f"{idx+1}")
+                        lines.append(f"{_to_srt_time(st)} --> {_to_srt_time(et)}")
+                        lines.append(txt)
+                        lines.append("")
+                    subtitles = "\n".join(lines)
+
             # 清理临时文件
             if tmp_path:
                 try:
@@ -1040,7 +1341,7 @@ class AilaTranscriber(io.ComfyNode):
                 except Exception:
                     pass
 
-            return io.NodeOutput(text)
+            return (text, subtitles)
 
         except Exception as e:
             # 清理临时文件
@@ -1160,12 +1461,19 @@ class AilaSynthesizer(io.ComfyNode):
                     default="",
                     tooltip="要合成语音的文本内容",
                 ),
+                # ── 共用参数 ──
                 io.Int.Input(
                     "max_new_tokens",
                     default=-1,
                     min=-1,
                     max=8192,
                     tooltip="最大生成 token 数，控制音频长度。设 -1 则设 8192（约19分钟，基本不限）；一段10秒语音约需256 tokens。配合 auto_segment 使用效果更好",
+                    optional=True,
+                ),
+                io.Boolean.Input(
+                    "auto_segment",
+                    default=False,
+                    tooltip="启用后按句号分句分段合成长文本，再拼接为完整音频。推荐长文本时开启",
                     optional=True,
                 ),
                 io.Int.Input(
@@ -1188,15 +1496,55 @@ class AilaSynthesizer(io.ComfyNode):
                     optional=True,
                 ),
                 io.Boolean.Input(
-                    "auto_segment",
-                    default=False,
-                    tooltip="启用后按句号分句分段合成长文本，再拼接为完整音频。推荐长文本时开启",
-                    optional=True,
-                ),
-                io.Boolean.Input(
                     "debug",
                     default=False,
                     tooltip="启用调试日志",
+                    optional=True,
+                ),
+                # ── CustomVoice 专用参数 ──
+                io.String.Input(
+                    "_cv_divider",
+                    display_name="分隔符",
+                    default="───── CustomVoice 专用 ─────",
+                    socketless=True,
+                    optional=True,
+                ),
+                io.Combo.Input(
+                    "speaker_name",
+                    options=[
+                        "默认",
+                        "Ryan",
+                        "Vivian",
+                        "Aiden",
+                        "Dylan",
+                        "Eric",
+                        "Ono_anna",
+                        "Serena",
+                        "Sohee",
+                        "Uncle_fu",
+                    ],
+                    default="默认",
+                    tooltip="CustomVoice 预设音色。选 \"默认\" 使用模型默认音色，或选预设名使用特定音色",
+                    optional=True,
+                ),
+                io.Audio.Input(
+                    "ref_audio",
+                    tooltip="参考音频，用于 CustomVoice 语音克隆。提供后引擎会模仿该音频的音色",
+                    optional=True,
+                ),
+                # ── VoiceDesign 专用参数 ──
+                io.String.Input(
+                    "_vd_divider",
+                    display_name="分隔符",
+                    default="───── VoiceDesign 专用 ─────",
+                    socketless=True,
+                    optional=True,
+                ),
+                io.String.Input(
+                    "instruct",
+                    multiline=True,
+                    default="",
+                    tooltip="VoiceDesign 风格指令，例如：\"温柔的女声，语速缓慢\"。仅 VoiceDesign 模型支持，Base/CustomVoice 会忽略",
                     optional=True,
                 ),
             ],
@@ -1215,6 +1563,11 @@ class AilaSynthesizer(io.ComfyNode):
         seed: int = 0,
         memory_cleanup: str = "persistent (不释放)",
         debug: bool = False,
+        speaker_name: str = "默认",
+        ref_audio: Optional[Dict[str, Any]] = None,
+        instruct: str = "",
+        _cv_divider: str = "",
+        _vd_divider: str = "",
     ) -> io.NodeOutput:
         """执行文字转语音。"""
         try:
@@ -1243,72 +1596,197 @@ class AilaSynthesizer(io.ComfyNode):
             elif "AILA_DEBUG_TOKEN_IDS" in os.environ:
                 del os.environ["AILA_DEBUG_TOKEN_IDS"]
 
-            # 最终文本
+            # ── 预处理参考音频（语音克隆用）────────────────────────────────
             final_text = text.strip()
             print(f"[Aila Synthesizer] Text: {final_text[:100]} ({len(final_text)} chars)")
 
+            ref_wav_path = None
+            if ref_audio is not None and isinstance(ref_audio, dict):
+                # 保存参考音频为临时 WAV
+                ref_waveform = ref_audio.get("waveform")
+                ref_sr = ref_audio.get("sample_rate", 24000)
+                if ref_waveform is not None:
+                    # 转为 float32 numpy
+                    ref_np = ref_waveform.cpu().numpy().astype(np.float32)
+                    # 合并多声道为单声道
+                    while ref_np.ndim > 1:
+                        ref_np = ref_np.mean(axis=0)
+                    ref_np = ref_np.flatten()
+                    # 确保采样率有效
+                    if ref_sr is None or ref_sr <= 0:
+                        ref_sr = 24000
+                    ref_wav_path = str(TEMP_DIR / f"aila_ref_{_next_temp_id():04d}.wav")
+                    import soundfile as sf
+                    sf.write(ref_wav_path, ref_np, int(ref_sr), subtype="PCM_16")
+                    print(f"[Aila Synthesizer] Ref audio saved: {ref_wav_path} ({len(ref_np)} samples, {ref_sr}Hz)")
+
+            # ── 根据模型名称判断类型 ───────────────────────────────────────
+            model_name = (aila_model.get("model_name", "") or "")
+            model_name_lower = model_name.lower()
+            model_type = "voicedesign" if "voicedesign" in model_name_lower else \
+                         "customvoice" if "customvoice" in model_name_lower else \
+                         "base"
+            print(f"[Aila Synthesizer] Model: {model_name} → type={model_type}")
+
+            # ── 选择合成路径 ──────────────────────────────────────────────
             # generate config: max_new_tokens=-1 传 8192 作为不限
             cfg = lib.aila_default_gen_config()
             cfg.max_new_tokens = max_new_tokens if max_new_tokens > 0 else 8192
             cfg_ptr = ctypes.byref(cfg)
 
-            # TTS 合成（支持自动分段）
-            all_samples: List[np.ndarray] = []
+            # 路径 B: 高级 API 模式（预设音色 / 风格指令）→ 走 aila_synthesize（写文件）
+            has_spk = (speaker_name or "").strip() and (speaker_name or "").strip() != "默认"
+            has_instruct = bool((instruct or "").strip())
+            # 根据模型类型决定生效的参数
+            if model_type == "customvoice":
+                use_preset = has_spk
+                effective_spk = speaker_name if has_spk else None
+                effective_instruct = None
+            elif model_type == "voicedesign":
+                use_preset = has_instruct
+                effective_spk = None
+                effective_instruct = instruct if has_instruct else None
+            else:  # base
+                use_preset = False
+                effective_spk = None
+                effective_instruct = None
 
-            if auto_segment:
-                # 按标点符号拆分为句子
-                for sep in ("。", "！", "？", "\n"):
-                    final_text = final_text.replace(sep, sep + "\n")
-                sentences = [s.strip() for s in final_text.split("\n") if s.strip()]
-
-                # 合并短句为平衡段落（每段目标 ~200 字）
-                segments = []
-                current = ""
-                for s in sentences:
-                    if len(current) + len(s) < 200 or not current:
-                        current += s
-                    else:
-                        segments.append(current)
-                        current = s
-                if current:
-                    segments.append(current)
-
-                print(f"[Aila Synthesizer] Auto-segment: {len(segments)} segment(s) from {len(sentences)} sentence(s)")
-            else:
-                segments = [final_text]
-
-            for idx, seg_text in enumerate(segments):
+            if use_preset:
+                # 分段
                 if auto_segment:
-                    print(f"[Aila Synthesizer] Segment {idx+1}/{len(segments)}: {seg_text[:60]}")
+                    for sep in ("。", "！", "？", "\n"):
+                        final_text = final_text.replace(sep, sep + "\n")
+                    sentences = [s.strip() for s in final_text.split("\n") if s.strip()]
+                    seg_texts = []
+                    current = ""
+                    for s in sentences:
+                        if len(current) + len(s) < 200 or not current:
+                            current += s
+                        else:
+                            seg_texts.append(current)
+                            current = s
+                    if current:
+                        seg_texts.append(current)
+                    print(f"[Aila Synthesizer] Auto-segment: {len(seg_texts)} segment(s) (preset mode)")
+                else:
+                    seg_texts = [final_text]
 
-                out_samples_ptr = ctypes.POINTER(ctypes.c_float)()
-                out_sample_count = ctypes.c_int()
+                all_file_arrays: List[np.ndarray] = []
+                for idx, seg_text in enumerate(seg_texts):
+                    if len(seg_texts) > 1:
+                        print(f"[Aila Synthesizer] Segment {idx+1}/{len(seg_texts)}: {seg_text[:60]}")
 
-                ret = lib.aila_synthesize_text_to_wav(
-                    engine,
-                    seg_text.encode("utf-8"),
-                    None,  # speaker_embedding
-                    0,     # speaker_embedding_len
-                    cfg_ptr,
-                    ctypes.byref(out_samples_ptr),
-                    ctypes.byref(out_sample_count),
-                )
+                    output_wav = str(TEMP_DIR / f"aila_tts_{_next_temp_id():04d}.wav")
 
-                if ret != 0:
-                    err = _get_aila_error(lib, engine)
-                    raise RuntimeError(f"Aila TTS 合成失败 (code={ret}): {err}")
+                    has_spk = (speaker_name or "").strip() and (speaker_name or "").strip() != "默认"
+                    has_instruct = bool((instruct or "").strip())
 
-                seg_samples = np.ctypeslib.as_array(
-                    out_samples_ptr, shape=(out_sample_count.value,)
-                ).copy()
-                lib.aila_free_samples(out_samples_ptr)
-                all_samples.append(seg_samples)
+                    ret = lib.aila_synthesize(
+                        engine,
+                        seg_text.encode("utf-8"),
+                        ref_wav_path.encode("utf-8") if ref_wav_path else None,
+                        speaker_name.encode("utf-8") if effective_spk else None,
+                        effective_instruct.encode("utf-8") if effective_instruct else None,
+                        None,
+                        cfg_ptr,
+                        output_wav.encode("utf-8"),
+                    )
+                    if ret != 0:
+                        err = _get_aila_error(lib, engine)
+                        raise RuntimeError(f"Aila TTS 合成失败 (code={ret}): {err}")
 
-            # 拼接所有段
-            if len(all_samples) == 1:
-                full_array = all_samples[0]
+                    import soundfile as sf
+                    data, sr = sf.read(output_wav, dtype="float32")
+                    all_file_arrays.append(data.flatten())
+                    os.remove(output_wav)
+
+                if ref_wav_path:
+                    os.remove(ref_wav_path)
+
+                full_array = np.concatenate(all_file_arrays) if len(all_file_arrays) > 1 else all_file_arrays[0]
+                segments = seg_texts
+
             else:
-                full_array = np.concatenate(all_samples)
+                # 路径 A: 内存模式（默认 / 语音克隆）→ 走 aila_synthesize_text_to_wav
+                speaker_embedding = None
+                speaker_embedding_len = 0
+
+                if ref_wav_path:
+                    # 提取说话人嵌入
+                    emb_ptr = ctypes.POINTER(ctypes.c_float)()
+                    emb_dim = ctypes.c_int()
+                    ret = lib.aila_extract_speaker_embedding(
+                        engine,
+                        ref_wav_path.encode("utf-8"),
+                        ctypes.byref(emb_ptr),
+                        ctypes.byref(emb_dim),
+                    )
+                    if ret != 0:
+                        err = _get_aila_error(lib, engine)
+                        raise RuntimeError(f"提取 speaker embedding 失败 (code={ret}): {err}")
+
+                    speaker_embedding = emb_ptr
+                    speaker_embedding_len = emb_dim.value
+                    os.remove(ref_wav_path)
+                    print(f"[Aila Synthesizer] Speaker embedding extracted: dim={speaker_embedding_len}")
+
+                # 分段合成
+                if auto_segment:
+                    for sep in ("。", "！", "？", "\n"):
+                        final_text = final_text.replace(sep, sep + "\n")
+                    sentences = [s.strip() for s in final_text.split("\n") if s.strip()]
+                    segments = []
+                    current = ""
+                    for s in sentences:
+                        if len(current) + len(s) < 200 or not current:
+                            current += s
+                        else:
+                            segments.append(current)
+                            current = s
+                    if current:
+                        segments.append(current)
+                    print(f"[Aila Synthesizer] Auto-segment: {len(segments)} segment(s)")
+                else:
+                    segments = [final_text]
+
+                all_samples: List[np.ndarray] = []
+                for idx, seg_text in enumerate(segments):
+                    if len(segments) > 1:
+                        print(f"[Aila Synthesizer] Segment {idx+1}/{len(segments)}: {seg_text[:60]}")
+
+                    out_samples_ptr = ctypes.POINTER(ctypes.c_float)()
+                    out_sample_count = ctypes.c_int()
+
+                    ret = lib.aila_synthesize_text_to_wav(
+                        engine,
+                        seg_text.encode("utf-8"),
+                        speaker_embedding,
+                        speaker_embedding_len,
+                        cfg_ptr,
+                        ctypes.byref(out_samples_ptr),
+                        ctypes.byref(out_sample_count),
+                    )
+                    if ret != 0:
+                        err = _get_aila_error(lib, engine)
+                        raise RuntimeError(f"Aila TTS 合成失败 (code={ret}): {err}")
+
+                    seg_samples = np.ctypeslib.as_array(
+                        out_samples_ptr, shape=(out_sample_count.value,)
+                    ).copy()
+                    lib.aila_free_samples(out_samples_ptr)
+                    all_samples.append(seg_samples)
+
+                    # 每段合成后释放 embedding 引用（只在第一段后释放 ref 的）
+                    # speaker_embedding 由引擎管理，不需要我们释放
+
+                if len(all_samples) == 1:
+                    full_array = all_samples[0]
+                else:
+                    full_array = np.concatenate(all_samples)
+
+                # 释放 speaker_embedding（如果提取过）
+                if speaker_embedding is not None:
+                    lib.aila_free_samples(speaker_embedding)
 
             sample_count = len(full_array)
             print(f"[Aila Synthesizer] Synthesized: {sample_count} samples, "

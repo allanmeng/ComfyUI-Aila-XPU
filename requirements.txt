@@ -4,3 +4,4 @@
 bitsandbytes
 transformers>=4.46.0
 soundfile
+jieba

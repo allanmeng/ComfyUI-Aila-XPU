@@ -1,6 +1,6 @@
 """Aila 提示词反推插件 - ComfyUI 插件入口"""
 
-__version__ = "0.1.5"
+__version__ = "0.1.7"
 
 import subprocess
 import sys

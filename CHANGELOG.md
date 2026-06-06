@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.1.7 (2026-06-06)
+
+### 插件
+- **引擎升级到 Aila v0.1.6**：替换 Aila.exe + AilaShared.dll
+- **TTS Synthesizer 增强**：
+  - 新增 `speaker_name` 参数（CustomVoice 预设音色：Ryan/Vivian 等 9 种）
+  - 新增 `ref_audio` 输入（Base 模型语音克隆）
+  - 新增 `instruct` 参数（VoiceDesign 风格指令）
+  - `model_type` 自动识别，参数互斥生效
+  - 预设音色/风格指令支持自动分段合成
+- 新增 C API 绑定：`aila_extract_speaker_embedding` + `aila_synthesize`
+- **ASR Transcriber 增强**：
+  - 新增 `force_aligner_model` 参数（Qwen3-ForceAligner 强制对齐）
+  - 新增 `SUBTITLES` 输出（SRT 格式字幕）
+  - 新增 `subtitle_mode` 参数（按断句/按词/按字三种粒度）
+  - 长音频自动分块对齐（2 分钟/块，支持 5 分钟以上音频）
+- 修复 `io.NodeOutput` 多输出返回值错误
+- 修复 ForceAligner 逐字对齐时标点缺失导致的断句检测失败
+- 新增依赖：`jieba`（中文分词，用于字幕生成）
+- 调整 ASR 默认参数：`max_tokens=1024`（勿超，ASR 模型 max_seq=2048）
+- README 更新：新增 TTS/ASR 高级功能说明
+
+### 引擎
+- Aila v0.1.5 / v0.1.6
+- 新增 CustomVoice 模型支持（预设音色）
+- 新增 VoiceDesign 模型支持（风格指令）
+- 新增 TTS 流式合成 API
+- 新增 ForceAligner 支持
+- 修复 speaker embedding 提取问题
+- TTS 性能优化
+
+---
+
 ## v0.1.6 (2026-06-02)
 
 ### 插件

@@ -16,8 +16,8 @@ Aila 是由 [Blackwood416](https://github.com/Blackwood416) 开发的 Intel Arc 
 本插件通过 [Aila](https://github.com/Blackwood416/Aila) 推理引擎调用 **Qwen 系列模型**，在 **Intel Arc 系列显卡（含 B580）** 上提供三大功能：
 
 - **LLM Captioner** — 图片提示词反推（SD 提示词、中文描述、Danbooru 标签），也支持纯文本问答
-- **ASR Transcriber** — 语音转文字，支持短音频和长音频分段转录
-- **TTS Synthesizer** — 文字转语音，支持自动分段合成长文本
+- **ASR Transcriber** — 语音转文字，支持短音频和长音频分段转录，可选 ForceAligner 输出 SRT 字幕
+- **TTS Synthesizer** — 文字转语音，支持预设音色（CustomVoice）、语音克隆（Base）、风格指令（VoiceDesign），自动分段合成长文本
 
 ## 效果
 
@@ -186,7 +186,8 @@ python export_model.py --from-hf Qwen/Qwen3-TTS-12Hz-0.6B-Base
 1. 添加 `Aila ASR Loader (XPU)` → 选择 ASR 模型 → 执行加载
 2. 添加 `Aila ASR Transcriber (XPU)` → 连接 Loader 的 `ASR_MODEL` 输出
 3. 音频（WAV/MP3 等）连接到 `audio` 输入
-4. 执行 → 输出 `TEXT`
+4. 可选：选择 ForceAligner 模型，启用字幕输出
+5. 执行 → 输出 `TEXT`（转录文本） + `SUBTITLES`（SRT 字幕，需启用 ForceAligner）
 
 #### ASR Transcriber 参数
 
@@ -195,9 +196,20 @@ python export_model.py --from-hf Qwen/Qwen3-TTS-12Hz-0.6B-Base
 | `forced_lang` | auto | 强制指定音频语言，提高准确率 |
 | `asr_system` | 空 | 转录上下文提示（如"这是一个计算机技术讲座"） |
 | `asr_segment` | -1 | 分段时长（秒）。-1/0=不分段，>0 按秒分段。长音频推荐 30~60 秒 |
-| `max_tokens` | 1024 | 最大转录长度 |
+| `max_tokens` | 1024 | 每段最大转录 token 数。ASR 模型 max_seq=2048，建议保持默认 |
 | `seed` | 0 | 随机种子 |
 | `memory_cleanup` | persistent | 显存处理方式 |
+| `debug` | False | 调试日志 |
+| `force_aligner_model` | None (不加载) | 选择 ForceAligner 模型后，额外输出带时间戳的 SRT 字幕 |
+| `subtitle_mode` | 按断句 | 字幕拆分方式。按断句（推荐）：。！？和逗号自然拆分；按词：jieba 分词逐词输出；按字：逐字时间戳 |
+
+#### 关于强制对齐（ForceAligner）
+
+ASR 转录后，可额外加载 Qwen3-ForceAligner 模型，将音频与文本逐字对齐，生成带时间戳的 SRT 字幕。
+
+- 支持按断句、按词、按字三种粒度
+- 长音频（5 分钟以上）自动分块对齐
+- 输出格式为标准 SRT，可直接用于视频字幕
 
 ### TTS 语音合成
 
@@ -210,9 +222,14 @@ python export_model.py --from-hf Qwen/Qwen3-TTS-12Hz-0.6B-Base
 1. 添加 `Aila TTS Loader (XPU)` → 选择 TTS 模型 → 执行加载
 2. 添加 `Aila TTS Synthesizer (XPU)` → 连接 Loader 的 `TTS_MODEL` 输出
 3. 在 `text` 输入要合成的文字
-4. 执行 → 输出 `AUDIO`
+4. 可选：选预设音色、接参考音频、填风格指令
+5. 执行 → 输出 `AUDIO`
 
 #### TTS Synthesizer 参数
+
+参数按模型类型分区：
+
+**共用参数（所有模型通用）**
 
 | 参数 | 默认 | 说明 |
 |:----|:----:|:------|
@@ -222,6 +239,29 @@ python export_model.py --from-hf Qwen/Qwen3-TTS-12Hz-0.6B-Base
 | `seed` | 0 | 随机种子 |
 | `memory_cleanup` | persistent | 显存处理方式 |
 | `debug` | False | 调试日志 |
+
+**CustomVoice 专用参数**
+
+| 参数 | 默认 | 说明 |
+|:----|:----:|:------|
+| `speaker_name` | 默认 | 预设音色（Ryan/Vivian/Aiden/Dylan/Eric/Ono_anna/Serena/Sohee/Uncle_fu 共 9 种）。仅 CustomVoice 模型有效 |
+| `ref_audio` | 无 | 参考音频输入（语音克隆）。仅 Base 模型有效（Base 含 speaker encoder） |
+
+**VoiceDesign 专用参数**
+
+| 参数 | 默认 | 说明 |
+|:----|:----:|:------|
+| `instruct` | 空 | 风格指令，如"温柔的女声，语速缓慢"。相同 instruct + seed 可复现相同音色 |
+
+#### TTS 模型说明
+
+| 模型 | 功能 | 预设音色 | 语音克隆 | 风格指令 |
+|:----|:-----|:--------:|:--------:|:--------:|
+| Base | 基础合成 | ❌ | ✅ | ❌ |
+| CustomVoice | 预设音色 | ✅ | ❌ | ❌ |
+| VoiceDesign | 风格设计 | ❌ | ❌ | ✅ |
+
+插件根据模型名称自动识别类型，`speaker_name` / `ref_audio` / `instruct` 参数互斥生效，无需手动切换。
 
 ## 技术说明
 
