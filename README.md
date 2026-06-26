@@ -1,13 +1,12 @@
 # ComfyUI-Aila-XPU
 
-> 基于 Aila 推理引擎的 ComfyUI 插件，在 Intel Arc 显卡上实现高效的 LLM 提示词反推、ASR 语音转录、TTS 语音合成。
+> 基于 Aila 推理引擎的 ComfyUI 插件，在 Intel Arc 显卡上实现高效的 VLM 提示词反推、LLM文本润色、ASR 语音转录、TTS 语音合成。
 >
 > [**English Docs**](./README_EN.md)
 
 ## 关于 [Aila 引擎 ](https://github.com/Blackwood416/Aila)
 
 Aila 是由 [Blackwood416](https://github.com/Blackwood416) 开发的 Intel Arc 推理引擎，专为 Intel GPU（含 A770、B580 等）优化。
-它利用 Intel oneDNN、SYCL 和 Level Zero 技术，在 Arc 显卡上
 
 **核心技术栈**：
 - **SYCL** —— 跨平台异构计算标准
