@@ -7,7 +7,19 @@
 ## 关于 [Aila 引擎 ](https://github.com/Blackwood416/Aila)
 
 Aila 是由 [Blackwood416](https://github.com/Blackwood416) 开发的 Intel Arc 推理引擎，专为 Intel GPU（含 A770、B580 等）优化。
-它利用 Intel oneDNN、SYCL 和 Level Zero 技术，在 Arc 显卡上实现了比 llama.cpp 等通用方案更优的推理性能。
+它利用 Intel oneDNN、SYCL 和 Level Zero 技术，在 Arc 显卡上
+
+**核心技术栈**：
+- **SYCL** —— 跨平台异构计算标准
+- **oneDNN** —— Intel 深度学习加速库
+- **Level Zero** —— Intel GPU 底层驱动接口
+- **bitsandbytes NF4** —— 4-bit 量化支持
+
+**原生 Intel Arc 优化**
+```
+Aila引擎从 kernel 层面针对 Arc 架构手写优化，实现了比 llama.cpp 等通用方案更优的推理性能。
+```
+
 
 感谢 Aila 作者 Blackwood416 在本插件开发过程中的快速响应！
 
