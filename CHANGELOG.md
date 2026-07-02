@@ -21,6 +21,8 @@
 - 新增依赖：`jieba`（中文分词，用于字幕生成）
 - 调整 ASR 默认参数：`max_tokens=1024`（勿超，ASR 模型 max_seq=2048）
 - README 更新：新增 TTS/ASR 高级功能说明
+- 修复首次安装时 `models/aila/asr/` 目录无法自动创建的路径错误
+- 新增 `models/aila/llm/`、`models/aila/tts/` 目录自动创建（`mkdir(parents=True)`）
 
 ### 引擎
 - Aila v0.1.5 / v0.1.6

@@ -27,6 +27,10 @@ except (KeyError, IndexError):
     # 回退到 models/aila
     AILA_MODEL_DIR = Path(folder_paths.base_path) / "models" / "aila"
 
+# 创建 LLM/ASR/TTS 子目录（首次安装时自动建立）
+AILA_LLM_MODEL_DIR = AILA_MODEL_DIR / "llm"
+AILA_LLM_MODEL_DIR.mkdir(parents=True, exist_ok=True)
+
 # 临时图像目录
 TEMP_DIR = PLUGIN_DIR / "temp"
 TEMP_DIR.mkdir(exist_ok=True)
@@ -86,9 +90,8 @@ def get_model_folders() -> List[Path]:
     user_folders = [Path(f) for f in config.get("model_folders", []) if os.path.exists(f)]
     default_folders = [AILA_MODEL_DIR] if AILA_MODEL_DIR.exists() else []
     # 也扫描 aila/llm/ 子目录，兼容新路径
-    llm_sub = AILA_MODEL_DIR / "llm"
-    if llm_sub.exists():
-        default_folders.append(llm_sub)
+    if AILA_LLM_MODEL_DIR.exists():
+        default_folders.append(AILA_LLM_MODEL_DIR)
     return default_folders + user_folders
 
 
@@ -794,7 +797,7 @@ atexit.register(_shutdown_all_engines)
 # ─── ASR 模型目录 ─────────────────────────────────────────────────────────
 
 AILA_ASR_MODEL_DIR = AILA_MODEL_DIR / "asr"
-AILA_ASR_MODEL_DIR.mkdir(exist_ok=True)
+AILA_ASR_MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def find_aila_asr_models() -> List[str]:
@@ -1356,6 +1359,7 @@ class AilaTranscriber(io.ComfyNode):
 # ─── TTS 模型目录 ─────────────────────────────────────────────────────────
 
 TTS_MODEL_DIR = AILA_MODEL_DIR / "tts"
+TTS_MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def find_aila_tts_models() -> List[str]:
