@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.7.1 (2026-07-25)
+
+### 修复
+- 移除启动时自动 pip install bitsandbytes 的逻辑
+- bitsandbytes 检测改为仅提示状态，不影响 Aila 引擎推理
+- 修复自动安装可能导致用户 PyTorch 环境被污染的问题
+- 移除 `subprocess`、`sys`、`os` 三个不再需要的 import
+- 适配新版 bitsandbytes（`COMPILED_WITH_CUDA` 属性已移除，改用 `BNB_BACKEND`）
+
 ## v0.1.7 (2026-06-06)
 
 ### 插件
