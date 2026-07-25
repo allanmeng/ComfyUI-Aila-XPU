@@ -90,7 +90,7 @@ ComfyUI-Aila-XPU/
 
 - Plugin code + `AilaShared.dll` + `AilaWorker.exe` are updated via `git pull`
 - oneAPI runtime DLLs (~476 MB) are downloaded separately from Release, rarely need updating
-- If your startup script sets `SYCL_CACHE_PERSISTENT=1`, comment it out (causes Aila worker crash)
+<p style="color:red; font-size:16px; font-weight:bold">⚠ If your startup script sets <code>SYCL_CACHE_PERSISTENT=1</code>, comment it out (causes Aila worker crash)</p>
 
 ## Models
 
