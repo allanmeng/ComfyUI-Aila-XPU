@@ -54,9 +54,9 @@ Open ComfyUI Manager → Custom Nodes → Install via Git URL, enter:
 https://github.com/allanmeng/ComfyUI-Aila-XPU
 ```
 
-After installation, you also need to download runtime DLLs (first-time setup):
+After installation, you also need to download runtime files (first-time setup):
 1. Go to the [Release page](https://github.com/allanmeng/ComfyUI-Aila-XPU/releases) and download `aila_runtime_dlls.zip`
-2. Extract to `ComfyUI/custom_nodes/ComfyUI-Aila-XPU/aila_runtime/` (same directory as `AilaShared.dll`)
+2. Extract to `ComfyUI/custom_nodes/ComfyUI-Aila-XPU/aila_runtime/`
 
 ### Method 2: Source Install
 
@@ -73,11 +73,24 @@ After installation, download runtime DLLs as described above.
 
 [https://pan.quark.cn/s/c793f4fbb990](https://pan.quark.cn/s/c793f4fbb990)
 
-### Intel Arc Users
+### Directory Structure (v0.1.7+)
 
-The plugin depends on `bitsandbytes`. On ComfyUI startup, the plugin automatically detects:
-- If NVIDIA CUDA version is installed, it will be automatically replaced with the XPU version
-- Intel Arc users **do not need to do anything manually**
+Engine v0.1.7 adopts process-isolated architecture. `AilaShared.dll` is a lightweight C API proxy, actual inference runs in `AilaWorker.exe`:
+
+```
+ComfyUI-Aila-XPU/
+├── AilaShared.dll              ← C API proxy (git tracked)
+├── aila_runtime/
+│   ├── AilaWorker.exe           ← Inference engine (git tracked)
+│   ├── Aila.exe                 ← CLI tool
+│   └── <oneAPI runtime DLLs>    ← Download from release
+```
+
+### Note
+
+- Plugin code + `AilaShared.dll` + `AilaWorker.exe` are updated via `git pull`
+- oneAPI runtime DLLs (~476 MB) are downloaded separately from Release, rarely need updating
+- If your startup script sets `SYCL_CACHE_PERSISTENT=1`, comment it out (causes Aila worker crash)
 
 ## Models
 

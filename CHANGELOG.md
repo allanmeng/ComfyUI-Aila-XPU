@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.1.7.2 (2026-07-25)
+
+### 引擎升级
+- **引擎升级到 Aila v0.1.7**：进程隔离架构（AilaShared.dll 为轻量代理，AilaWorker.exe 独立进程推理）
+- **目录结构调整**：AilaShared.dll 从 `aila_runtime/` 移到插件根目录
+- 新增 `AILA_RUNTIME_DLL_DIR` 环境变量支持
+- 移除 `os.add_dll_directory("aila_runtime")` 调用（避免破坏进程隔离）
+- 配置 `dll_path` 默认路径更新
+- 新增 `git` 追踪：`AilaShared.dll`（根目录）+ `aila_runtime/AilaWorker.exe`
+
+### 文档
+- README / README_EN 更新：v0.1.7 新目录结构、环境变量说明、安装方式更新
+
 ## v0.1.7.1 (2026-07-25)
 
 ### 修复

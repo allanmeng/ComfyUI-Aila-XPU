@@ -66,9 +66,9 @@ https://github.com/allanmeng/ComfyUI-Aila-XPU
 ```
 ![演示图](./images/启动器安装插件.png)
 
-安装后还需下载运行时 DLL（首次安装需要）：
+安装后还需下载运行时文件（首次安装需要）：
 1. 打开 [Release 页面](https://github.com/allanmeng/ComfyUI-Aila-XPU/releases) 下载 `aila_runtime_dlls.zip`
-2. 解压到 `ComfyUI/custom_nodes/ComfyUI-Aila-XPU/aila_runtime/`（与 `AilaShared.dll` 同目录）
+2. 解压到 `ComfyUI/custom_nodes/ComfyUI-Aila-XPU/aila_runtime/`
 
 ### 方式二：从源码安装
 
@@ -85,11 +85,24 @@ pip install -r requirements.txt
 
 [https://pan.quark.cn/s/c793f4fbb990](https://pan.quark.cn/s/c793f4fbb990)
 
-### Intel Arc 用户注意
+### 目录结构（v0.1.7+）
 
-插件依赖 `bitsandbytes`，启动 ComfyUI 时插件会自动检测：
-- 若检测到当前安装的是 NVIDIA CUDA 版，会自动替换为 XPU 版
-- Intel Arc 用户**无需手动操作**
+引擎 v0.1.7 采用进程隔离架构，`AilaShared.dll` 为轻量 C API 代理，推理由独立的 `AilaWorker.exe` 执行：
+
+```
+ComfyUI-Aila-XPU/
+├── AilaShared.dll              ← C API 代理（git 追踪）
+├── aila_runtime/
+│   ├── AilaWorker.exe           ← 推理引擎（git 追踪）
+│   ├── Aila.exe                 ← CLI 工具
+│   └── <oneAPI 运行时 DLLs>      ← 需下载 release zip
+```
+
+### 注意
+
+- 插件代码通过 Git 安装，`AilaShared.dll` 和 `AilaWorker.exe` 随代码更新
+- oneAPI 运行时 DLLs（~476 MB）单独从 Release 下载，仅 oneAPI 大版本升级时需更新
+- 如遇启动脚本设了 `SYCL_CACHE_PERSISTENT=1`，请注释掉该变量（会导致 Aila worker 崩溃）
 
 ## 模型获取
 

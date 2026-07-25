@@ -276,15 +276,8 @@ def _bind_functions(lib: ctypes.CDLL):
 
 def load_aila_library(dll_path: Path) -> ctypes.CDLL:
     """加载 AilaShared.dll，返回 CDLL 实例。"""
-    dll_dir = str(dll_path.parent.resolve())
-    # 确保 DLL 所在目录在搜索路径中
-    if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
-        os.add_dll_directory(dll_dir)
-    else:
-        # 备用：修改 PATH
-        old_path = os.environ.get("PATH", "")
-        if dll_dir not in old_path:
-            os.environ["PATH"] = dll_dir + os.pathsep + old_path
+    # 设置运行时目录（Aila v0.1.7+ 进程隔离架构要求）
+    os.environ["AILA_RUNTIME_DLL_DIR"] = str(PLUGIN_DIR / "aila_runtime")
 
     lib = ctypes.cdll.LoadLibrary(str(dll_path))
     _bind_functions(lib)
