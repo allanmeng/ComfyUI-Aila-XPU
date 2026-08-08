@@ -102,7 +102,7 @@ ComfyUI-Aila-XPU/
 
 - 插件代码通过 Git 安装，`AilaShared.dll` 和 `AilaWorker.exe` 随代码更新
 - oneAPI 运行时 DLLs（~476 MB）单独从 Release 下载，仅 oneAPI 大版本升级时需更新
-<p style="color:red; font-size:16px; font-weight:bold">⚠ 如遇启动脚本设了 <code>SYCL_CACHE_PERSISTENT=1</code>，请注释掉该变量（会导致 Aila worker 崩溃）</p>
+- 引擎 v0.1.8+ 已隔离 `SYCL_CACHE_PERSISTENT` 环境变量，启动脚本无需额外处理
 
 ## 模型获取
 

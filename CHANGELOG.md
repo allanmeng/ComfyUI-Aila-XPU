@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.8 (2026-08-08)
+
+### 引擎升级
+- **引擎升级到 Aila v0.1.8**：修复 `SYCL_CACHE_PERSISTENT=1` 环境变量导致 worker 空指针崩溃的问题
+- 该变量现已在引擎层与 worker 运行时环境隔离，启动脚本中无需再注释
+- 同步更新 `AilaShared.dll` + `AilaWorker.exe` + `Aila.exe` 三个二进制文件
+
+### 文档
+- README / README_EN 移除 `SYCL_CACHE_PERSISTENT` 警告（引擎层已修复）
+
 ## v0.1.7.2 (2026-07-25)
 
 ### 引擎升级
