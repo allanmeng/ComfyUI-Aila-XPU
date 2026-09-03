@@ -73,9 +73,9 @@ After installation, download runtime DLLs as described above.
 
 [https://pan.quark.cn/s/c793f4fbb990](https://pan.quark.cn/s/c793f4fbb990)
 
-### Directory Structure (v0.1.7+)
+### Directory Structure (v0.1.7+, engine v0.2.0)
 
-Engine v0.1.7 adopts process-isolated architecture. `AilaShared.dll` is a lightweight C API proxy, actual inference runs in `AilaWorker.exe`:
+Engine v0.1.7+ adopts process-isolated architecture. `AilaShared.dll` is a lightweight C API proxy, actual inference runs in `AilaWorker.exe`:
 
 ```
 ComfyUI-Aila-XPU/
@@ -89,8 +89,9 @@ ComfyUI-Aila-XPU/
 ### Note
 
 - Plugin code + `AilaShared.dll` + `AilaWorker.exe` are updated via `git pull`
-- oneAPI runtime DLLs (~476 MB) are downloaded separately from Release, rarely need updating
+- oneAPI runtime DLLs are downloaded separately from Release; **engine v0.2.0 updated runtime dependencies — re-download the full runtime when upgrading to 0.2.0**
 - Engine v0.1.8+ isolates the `SYCL_CACHE_PERSISTENT` env var, no extra startup script handling needed
+- **After upgrading to v0.2.0, delete old Aila TTS Synthesizer nodes and re-add them** (input schema changed)
 
 ## Models
 
@@ -238,6 +239,16 @@ The plugin includes 6 nodes, organized into three groups:
 | `seed` | 0 | Random seed |
 | `memory_cleanup` | persistent | GPU memory handling |
 | `debug` | False | Debug logging |
+
+#### Voice Cloning (Base models, v0.2.0+)
+
+| Parameter | Default | Description |
+|:----|:----:|:------|
+| `ref_audio` | None | Reference audio for voice cloning |
+| `voice_clone_mode` | XVECTOR_ONLY | **ICL**: in-context cloning (ref_audio + ref_text), higher similarity, consistent voice across auto-segmented segments. **XVECTOR_ONLY**: fast x-vector cloning, no ref_text needed, lower similarity |
+| `ref_text` | Empty | Accurate transcript of the reference audio. **Required in ICL mode** (running without it raises a clear error); ignored in XVECTOR_ONLY mode |
+
+Recommended ICL workflow: connect `ref_audio`, set `voice_clone_mode` to `ICL`, fill `ref_text` with the reference transcript. Enable `auto_segment` for long text — engine v0.2.0 deterministic sampling keeps voice consistent across segments.
 
 ## Technical Notes
 

@@ -85,9 +85,9 @@ pip install -r requirements.txt
 
 [https://pan.quark.cn/s/c793f4fbb990](https://pan.quark.cn/s/c793f4fbb990)
 
-### 目录结构（v0.1.7+）
+### 目录结构（v0.1.7+，引擎 v0.2.0）
 
-引擎 v0.1.7 采用进程隔离架构，`AilaShared.dll` 为轻量 C API 代理，推理由独立的 `AilaWorker.exe` 执行：
+引擎 v0.1.7+ 采用进程隔离架构，`AilaShared.dll` 为轻量 C API 代理，推理由独立的 `AilaWorker.exe` 执行：
 
 ```
 ComfyUI-Aila-XPU/
@@ -101,8 +101,9 @@ ComfyUI-Aila-XPU/
 ### 注意
 
 - 插件代码通过 Git 安装，`AilaShared.dll` 和 `AilaWorker.exe` 随代码更新
-- oneAPI 运行时 DLLs（~476 MB）单独从 Release 下载，仅 oneAPI 大版本升级时需更新
+- oneAPI 运行时 DLLs 单独从 Release 下载；**引擎 v0.2.0 起运行时依赖更新**，升级 0.2.0 需重新下载完整运行时
 - 引擎 v0.1.8+ 已隔离 `SYCL_CACHE_PERSISTENT` 环境变量，启动脚本无需额外处理
+- **升级到 v0.2.0 后，请删除旧的 Aila TTS Synthesizer 节点重新添加**（参数 schema 已变更）
 
 ## 模型获取
 
@@ -273,13 +274,20 @@ ASR 转录后，可额外加载 Qwen3-ForceAligner 模型，将音频与文本�
 | 参数 | 默认 | 说明 |
 |:----|:----:|:------|
 | `speaker_name` | 默认 | 预设音色（Ryan/Vivian/Aiden/Dylan/Eric/Ono_anna/Serena/Sohee/Uncle_fu 共 9 种）。仅 CustomVoice 模型有效 |
-| `ref_audio` | 无 | 参考音频输入（语音克隆）。仅 Base 模型有效（Base 含 speaker encoder） |
 
 **VoiceDesign 专用参数**
 
 | 参数 | 默认 | 说明 |
 |:----|:----:|:------|
-| `instruct` | 空 | 风格指令，如"温柔的女声，语速缓慢"。相同 instruct + seed 可复现相同音色 |
+| `instruct` | 空 | 风格指令，如"温柔的女声，语速缓慢"。相同 instruct 可复现相同音色 |
+
+**VoiceClone 专用参数**（语音克隆，仅 Base 模型有效）
+
+| 参数 | 默认 | 说明 |
+|:----|:----:|:------|
+| `ref_audio` | 无 | 参考音频输入（语音克隆用） |
+| `voice_clone_mode` | XVECTOR_ONLY | 克隆模式：**ICL**（上下文学习，ref_audio + ref_text 配对，音色还原高，长文本分段音色一致）；**XVECTOR_ONLY**（x-vector 快速克隆，无需 ref_text，音色还原度较低） |
+| `ref_text` | 空 | 参考音频的准确转写文本。**ICL 模式必填**（未填运行会报错提示），XVECTOR_ONLY 模式忽略 |
 
 #### TTS 模型说明
 
@@ -289,7 +297,13 @@ ASR 转录后，可额外加载 Qwen3-ForceAligner 模型，将音频与文本�
 | CustomVoice | 预设音色 | ✅ | ❌ | ❌ |
 | VoiceDesign | 风格设计 | ❌ | ❌ | ✅ |
 
-插件根据模型名称自动识别类型，`speaker_name` / `ref_audio` / `instruct` 参数互斥生效，无需手动切换。
+插件根据模型名称自动识别类型，`speaker_name` / `instruct` / `ref_audio` 参数按模型分区生效。
+
+**ICL 语音克隆建议**（v0.2.0+）：
+1. 使用 Base 模型，连接 `ref_audio` 到参考音频
+2. `voice_clone_mode` 选 `ICL`
+3. 在 `ref_text` 填入参考音频的准确转写文本（质量越高克隆越接近）
+4. 长文本合成建议开启 `auto_segment`——v0.2.0 引擎确定性采样保证分段间音色一致
 
 ## 技术说明
 

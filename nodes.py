@@ -152,6 +152,22 @@ class AilaAlignedWord(ctypes.Structure):
     ]
 
 
+# Aila v0.2.0：语音克隆模式常量（对应 aila_api.h AilaVoiceCloneMode）
+AILA_VOICE_CLONE_AUTO = 0
+AILA_VOICE_CLONE_ICL = 1
+AILA_VOICE_CLONE_XVECTOR_ONLY = 2
+
+
+class AilaTTSOptions(ctypes.Structure):
+    """对应 Aila v0.2.0 的 AilaTTSOptions 结构体（size-safe）。"""
+    _fields_ = [
+        ("struct_size", ctypes.c_uint32),      # sizeof(AilaTTSOptions)
+        ("reference_text", ctypes.c_char_p),   # UTF-8 参考转写文本（ICL 用，可 NULL）
+        ("voice_clone_mode", ctypes.c_int),    # AilaVoiceCloneMode
+        ("reserved", ctypes.c_int * 6),        # 必须为零
+    ]
+
+
 def _bind_functions(lib: ctypes.CDLL):
     """绑定 AilaShared.dll 中 C API 函数的调用签名。"""
     # 生命周期
@@ -241,6 +257,23 @@ def _bind_functions(lib: ctypes.CDLL):
         ctypes.c_char_p,                   # output_wav_path
     ]
     lib.aila_synthesize.restype = ctypes.c_int
+
+    # Aila v0.2.0：默认 TTS options（返回结构体）
+    lib.aila_tts_options_default.restype = AilaTTSOptions
+
+    # Aila v0.2.0：扩展 TTS 合成（支持 ICL / XVECTOR 克隆模式，写 WAV 文件）
+    lib.aila_synthesize_ex.argtypes = [
+        ctypes.c_void_p,                   # engine
+        ctypes.c_char_p,                   # text
+        ctypes.c_char_p,                   # reference_audio_path (可 NULL)
+        ctypes.c_char_p,                   # speaker_name (可 NULL)
+        ctypes.c_char_p,                   # instruct_text (可 NULL)
+        ctypes.c_char_p,                   # language (可 NULL)
+        ctypes.POINTER(AilaGenConfig),     # config (可 NULL)
+        ctypes.POINTER(AilaTTSOptions),    # options (可 NULL)
+        ctypes.c_char_p,                   # output_wav_path
+    ]
+    lib.aila_synthesize_ex.restype = ctypes.c_int
 
     # 强制对齐（ForceAligner）
     lib.aila_align.argtypes = [
@@ -1524,11 +1557,6 @@ class AilaSynthesizer(io.ComfyNode):
                     tooltip="CustomVoice 预设音色。选 \"默认\" 使用模型默认音色，或选预设名使用特定音色",
                     optional=True,
                 ),
-                io.Audio.Input(
-                    "ref_audio",
-                    tooltip="参考音频，用于 CustomVoice 语音克隆。提供后引擎会模仿该音频的音色",
-                    optional=True,
-                ),
                 # ── VoiceDesign 专用参数 ──
                 io.String.Input(
                     "_vd_divider",
@@ -1542,6 +1570,36 @@ class AilaSynthesizer(io.ComfyNode):
                     multiline=True,
                     default="",
                     tooltip="VoiceDesign 风格指令，例如：\"温柔的女声，语速缓慢\"。仅 VoiceDesign 模型支持，Base/CustomVoice 会忽略",
+                    optional=True,
+                ),
+                # ── VoiceClone 专用参数 ──
+                io.String.Input(
+                    "_vc_divider",
+                    display_name="分隔符",
+                    default="───── VoiceClone 专用 ─────",
+                    socketless=True,
+                    optional=True,
+                ),
+                io.Audio.Input(
+                    "ref_audio",
+                    tooltip="参考音频，用于语音克隆（仅 Base 模型有效）。提供后引擎会模仿该音频的音色",
+                    optional=True,
+                ),
+                io.Combo.Input(
+                    "voice_clone_mode",
+                    options=[
+                        "XVECTOR_ONLY",
+                        "ICL",
+                    ],
+                    default="XVECTOR_ONLY",
+                    tooltip="语音克隆模式（仅接 ref_audio 时生效）。XVECTOR_ONLY：快速克隆，无需参考文本；ICL：上下文学习克隆，音色还原更高，需连接 ref_text",
+                    optional=True,
+                ),
+                io.String.Input(
+                    "ref_text",
+                    multiline=True,
+                    default="",
+                    tooltip="参考音频的准确转写文本（ICL 模式必填）。与 ref_audio 配对，引擎学习后克隆更接近原声。仅 ICL 模式有效，XVECTOR_ONLY 模式忽略",
                     optional=True,
                 ),
             ],
@@ -1562,9 +1620,12 @@ class AilaSynthesizer(io.ComfyNode):
         debug: bool = False,
         speaker_name: str = "默认",
         ref_audio: Optional[Dict[str, Any]] = None,
+        voice_clone_mode: str = "XVECTOR_ONLY",
+        ref_text: str = "",
         instruct: str = "",
         _cv_divider: str = "",
         _vd_divider: str = "",
+        _vc_divider: str = "",
     ) -> io.NodeOutput:
         """执行文字转语音。"""
         try:
@@ -1704,30 +1765,30 @@ class AilaSynthesizer(io.ComfyNode):
                 segments = seg_texts
 
             else:
-                # 路径 A: 内存模式（默认 / 语音克隆）→ 走 aila_synthesize_text_to_wav
-                speaker_embedding = None
-                speaker_embedding_len = 0
+                # 路径 A: Base 模型（默认音色 / 语音克隆）→ 统一走 aila_synthesize_ex（写文件）
+                # 构造克隆 options（仅 Base 模型 + 接了 ref_audio 时有效）
+                tts_options = None
+                tts_options_obj = None
+                if model_type == "base" and ref_wav_path:
+                    use_icl = (voice_clone_mode or "").strip().upper().startswith("ICL")
+                    tts_options_obj = lib.aila_tts_options_default()
+                    tts_options_obj.struct_size = ctypes.sizeof(AilaTTSOptions)
+                    if use_icl:
+                        ref_text_clean = (ref_text or "").strip()
+                        if not ref_text_clean:
+                            raise ValueError(
+                                "ICL 语音克隆模式必须连接 ref_text（参考音频的准确转写文本）。"
+                                "如无法提供转写，请将 voice_clone_mode 切换到 XVECTOR_ONLY"
+                            )
+                        tts_options_obj.reference_text = ref_text_clean.encode("utf-8")
+                        tts_options_obj.voice_clone_mode = AILA_VOICE_CLONE_ICL
+                        print("[Aila Synthesizer] Voice clone mode: ICL (reference_text provided)")
+                    else:
+                        tts_options_obj.voice_clone_mode = AILA_VOICE_CLONE_XVECTOR_ONLY
+                        print("[Aila Synthesizer] Voice clone mode: XVECTOR_ONLY")
+                    tts_options = ctypes.byref(tts_options_obj)
 
-                if ref_wav_path:
-                    # 提取说话人嵌入
-                    emb_ptr = ctypes.POINTER(ctypes.c_float)()
-                    emb_dim = ctypes.c_int()
-                    ret = lib.aila_extract_speaker_embedding(
-                        engine,
-                        ref_wav_path.encode("utf-8"),
-                        ctypes.byref(emb_ptr),
-                        ctypes.byref(emb_dim),
-                    )
-                    if ret != 0:
-                        err = _get_aila_error(lib, engine)
-                        raise RuntimeError(f"提取 speaker embedding 失败 (code={ret}): {err}")
-
-                    speaker_embedding = emb_ptr
-                    speaker_embedding_len = emb_dim.value
-                    os.remove(ref_wav_path)
-                    print(f"[Aila Synthesizer] Speaker embedding extracted: dim={speaker_embedding_len}")
-
-                # 分段合成
+                # 分段合成（v0.2.0 引擎内部确定性采样 + KV-cache 重置，逐段调用音色一致）
                 if auto_segment:
                     for sep in ("。", "！", "？", "\n"):
                         final_text = final_text.replace(sep, sep + "\n")
@@ -1751,39 +1812,33 @@ class AilaSynthesizer(io.ComfyNode):
                     if len(segments) > 1:
                         print(f"[Aila Synthesizer] Segment {idx+1}/{len(segments)}: {seg_text[:60]}")
 
-                    out_samples_ptr = ctypes.POINTER(ctypes.c_float)()
-                    out_sample_count = ctypes.c_int()
+                    # v0.2.0 引擎内部确定性采样 + KV-cache 重置保证每段音色一致，无需外部传 seed
+                    output_wav = str(TEMP_DIR / f"aila_tts_{_next_temp_id():04d}.wav")
 
-                    ret = lib.aila_synthesize_text_to_wav(
+                    ret = lib.aila_synthesize_ex(
                         engine,
                         seg_text.encode("utf-8"),
-                        speaker_embedding,
-                        speaker_embedding_len,
+                        ref_wav_path.encode("utf-8") if ref_wav_path else None,
+                        None,          # speaker_name (base 不支持预设)
+                        None,          # instruct_text (base 不支持)
+                        None,          # language (auto)
                         cfg_ptr,
-                        ctypes.byref(out_samples_ptr),
-                        ctypes.byref(out_sample_count),
+                        tts_options,
+                        output_wav.encode("utf-8"),
                     )
                     if ret != 0:
                         err = _get_aila_error(lib, engine)
                         raise RuntimeError(f"Aila TTS 合成失败 (code={ret}): {err}")
 
-                    seg_samples = np.ctypeslib.as_array(
-                        out_samples_ptr, shape=(out_sample_count.value,)
-                    ).copy()
-                    lib.aila_free_samples(out_samples_ptr)
-                    all_samples.append(seg_samples)
+                    import soundfile as sf
+                    data, sr = sf.read(output_wav, dtype="float32")
+                    all_samples.append(data.flatten())
+                    os.remove(output_wav)
 
-                    # 每段合成后释放 embedding 引用（只在第一段后释放 ref 的）
-                    # speaker_embedding 由引擎管理，不需要我们释放
+                if ref_wav_path:
+                    os.remove(ref_wav_path)
 
-                if len(all_samples) == 1:
-                    full_array = all_samples[0]
-                else:
-                    full_array = np.concatenate(all_samples)
-
-                # 释放 speaker_embedding（如果提取过）
-                if speaker_embedding is not None:
-                    lib.aila_free_samples(speaker_embedding)
+                full_array = np.concatenate(all_samples) if len(all_samples) > 1 else all_samples[0]
 
             sample_count = len(full_array)
             print(f"[Aila Synthesizer] Synthesized: {sample_count} samples, "

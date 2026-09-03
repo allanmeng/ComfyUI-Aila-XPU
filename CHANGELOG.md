@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.2.0 (2026-09-03)
+
+### 引擎升级
+- **引擎升级到 Aila v0.2.0**（含 oneAPI 运行时依赖更新，需整体替换 `aila_runtime/`）
+- 新增功能：原生 Qwen3-TTS ICL 语音克隆、YOLO26 检测（引擎侧）、自适应 prefill GEMM 调度、确定性 TTS 采样 + KV-cache 重置
+
+### 新功能：ICL 语音克隆（AilaSynthesizer）
+- 新增 `voice_clone_mode` 参数（ICL / XVECTOR_ONLY）
+  - **ICL**：上下文学习克隆，ref_audio + ref_text 配对，音色还原度高，长文本分段音色一致（v0.2.0 确定性采样）
+  - **XVECTOR_ONLY**：x-vector 快速克隆，无需 ref_text，音色还原度较低（模式固有特性）
+- 新增 `ref_text` 参数：参考音频的准确转写文本（ICL 模式必填，未填运行报错提示）
+- 参数按模式分区：CustomVoice（speaker_name）/ VoiceDesign（instruct）/ VoiceClone（ref_audio、voice_clone_mode、ref_text）
+- 语音克隆路径切换到 `aila_synthesize_ex`（引擎 v0.2.0 新 API），修复旧 embedding 路径在 v0.2.0 下的克隆异常
+- 新增前端联动：切换 voice_clone_mode 时 ref_text 自动灰显/启用
+- ICL 模式无 ref_text 直接运行 → 明确报错提示
+
+### 注意
+- **升级后请删除旧的 Aila TTS Synthesizer 节点并重新添加**（schema 已变更）
+- 运行时依赖更新：需重新下载含 oneAPI DLLs 的完整包
+
 ## v0.1.8 (2026-08-08)
 
 ### 引擎升级

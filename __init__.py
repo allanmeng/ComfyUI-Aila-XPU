@@ -1,10 +1,13 @@
 """Aila 提示词反推插件 - ComfyUI 插件入口"""
 
-__version__ = "0.1.8"
+__version__ = "0.2.0"
 
 from comfy_api.latest import ComfyExtension, io
 
 from .nodes import AilaModelLoader, AilaCaptioner, AilaASRLoader, AilaTranscriber, AilaTTSLoader, AilaSynthesizer
+
+# 前端扩展目录（voice_clone_mode ↔ ref_text 联动灰显等 UI 逻辑）
+WEB_DIRECTORY = "./web"
 
 
 def _check_bnb():
